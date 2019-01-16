@@ -497,6 +497,7 @@ ObjectT KeepawayPlayer::chooseLookObject( double ballThr )
 SoccerCommand KeepawayPlayer::taker()
 {
     bool handCoded = false; // Niki-added. toggle for different taker policy.
+    //handCoded = true;
 
     if (handCoded) {
         SoccerCommand soc;
@@ -573,6 +574,7 @@ SoccerCommand KeepawayPlayer::taker()
             ACT->putCommandInQueue( soc = holdBall( 0.3 ) );
             return soc;
         }  
+        /*
           // If teammate has it, don't mess with it
           double dDist;
           ObjectT closest = WM->getClosestInSetTo( OBJECT_SET_PLAYERS, 
@@ -584,10 +586,11 @@ SoccerCommand KeepawayPlayer::taker()
             ACT->putCommandInQueue( alignNeckWithBody() );
             return soc;
           }
+          */
 
       int action;
       // Choose what next action will be
-      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 15 && 
+      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 5 && 
              WM->getLastAction() > 0 ) { // if our last decision was less that 5 cycles ago 
           // ^ we use 5 because of page 88 in Gao's thesis
           //std::cout << "same" << std::endl;
@@ -595,7 +598,7 @@ SoccerCommand KeepawayPlayer::taker()
           // ^ we use 5 cycles because that's what we used in the thesis
       } else { // randomly choose next action
           int action = rand() % WM->getNumKeepers();
-          //action = 0;
+          action = 0;
           //std::cout << "player " << WM->getPlayerNumber() << "action: " << action << std::endl;
           WM->setTimeLastDecision( WM->getCurrentCycle() );
       }
