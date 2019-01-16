@@ -587,7 +587,7 @@ SoccerCommand KeepawayPlayer::taker()
 
       int action;
       // Choose what next action will be
-      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 5 && 
+      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 15 && 
              WM->getLastAction() > 0 ) { // if our last decision was less that 5 cycles ago 
           // ^ we use 5 because of page 88 in Gao's thesis
           //std::cout << "same" << std::endl;
