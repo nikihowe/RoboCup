@@ -593,7 +593,7 @@ SoccerCommand KeepawayPlayer::taker()
           // ^ we use 5 cycles because that's what we used in the thesis
       } else { // randomly choose next action
           int action = rand() % WM->getNumKeepers();
-          action = 0;
+          //action = 0;
           std::cout << "action: " << action << std::endl;
           WM->setTimeLastDecision( WM->getCurrentCycle() );
       }
