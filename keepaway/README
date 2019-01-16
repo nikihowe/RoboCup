@@ -1,3 +1,11 @@
+This is a Niki-modified version of the implementation
+of the keepaway player maintained by
+Tom Palmer. Eventually this will be more fleshed out.
+
+His readme is below.
+Also, see https://github.com/tjpalmer/keepaway
+
+--------------------------
 This project is intended as a public but unofficial repository for updates to
 the Keepaway benchmark player framework created at UT Austin by Gregory
 Kuhlmann and Peter Stone.
