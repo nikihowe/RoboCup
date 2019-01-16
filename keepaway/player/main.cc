@@ -76,6 +76,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #include <stdlib.h>   // needed for exit
 #include <vector>
+#include <unistd.h> // for RNG
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
 
 extern Logger Log;     /*!< This is a reference to the normal Logger class   */
 extern LoggerDraw LogDraw; /*!< This is a reference to the drawing Logger class  */
@@ -88,6 +91,8 @@ void printOptions( );
     all the classes are linked, the mainLoop in the Player class is called. */
 int main( int argc, char * argv[] )
 {
+
+    srand(time(NULL) * gettid()); // to make the randomization thread-specific
 
 #ifdef WIN32
   HANDLE         sense;

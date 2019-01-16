@@ -278,7 +278,7 @@ ArgumentationAgent::ArgumentationAgent(
   char *saveWeightsFile, bool hiveMind ):
     SMDPAgent( numFeatures, numActions ), hiveFile(-1), world(world_)
 {
-  srand(time(NULL));
+  //srand(time(NULL)); (already set in main)
   bLearning = bLearn;
 
   for ( int i = 0; i < getNumFeatures(); i++ ) {

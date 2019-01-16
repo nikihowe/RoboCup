@@ -55,7 +55,7 @@ KeepawayPlayer::KeepawayPlayer( SMDPAgent* sa, ActHandler* act, WorldModel *wm,
 
 {
 
-    srand(time(NULL));
+    // srand(time(NULL)); (already set in main)
 
     char str[MAX_MSG];
 
@@ -589,12 +589,14 @@ SoccerCommand KeepawayPlayer::taker()
       // Choose what next action will be
       if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 5 && 
              WM->getLastAction() > 0 ) { // if our last decision was less that 5 cycles ago 
+          // ^ we use 5 because of page 88 in Gao's thesis
+          //std::cout << "same" << std::endl;
           int action = WM->getLastAction();    // then continue with same action
           // ^ we use 5 cycles because that's what we used in the thesis
       } else { // randomly choose next action
           int action = rand() % WM->getNumKeepers();
           //action = 0;
-          std::cout << "action: " << action << std::endl;
+          //std::cout << "player " << WM->getPlayerNumber() << "action: " << action << std::endl;
           WM->setTimeLastDecision( WM->getCurrentCycle() );
       }
 
