@@ -574,7 +574,29 @@ SoccerCommand KeepawayPlayer::taker()
             ACT->putCommandInQueue( soc = holdBall( 0.3 ) );
             return soc;
         }  
-        /*
+
+      int action;
+      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 5 ) {
+          // ^ we use 5 because of page 88 in Gao's thesis
+          //std::cout << "same" << std::endl;
+          action = WM->getLastAction();    // then continue with same action
+          // ^ we use 5 cycles because that's what we used in the thesis
+      } else { // randomly choose next action
+          action = rand() % WM->getNumKeepers();
+          //action = 0;
+          //std::cout << "player " << WM->getPlayerNumber() << "action: " << action << std::endl;
+          WM->setTimeLastDecision( WM->getCurrentCycle() );
+      }
+
+      /* // Now we make the keeper choose every cycle
+      // Choose what next action will be
+      int action = rand() % WM->getNumKeepers();
+      WM->setTimeLastDecision( WM->getCurrentCycle() );
+      // TODO: if this doesn't work, try having taker choose
+      // every 5, but without forcing non-go-to-ball (not action 0)
+      */
+
+      if (action == 0) { // go to ball
           // If teammate has it, don't mess with it
           double dDist;
           ObjectT closest = WM->getClosestInSetTo( OBJECT_SET_PLAYERS, 
@@ -586,24 +608,7 @@ SoccerCommand KeepawayPlayer::taker()
             ACT->putCommandInQueue( alignNeckWithBody() );
             return soc;
           }
-          */
 
-      int action;
-      // Choose what next action will be
-      if ( WM->getCurrentCycle() < WM->getTimeLastDecision() + 5 && 
-             WM->getLastAction() > 0 ) { // if our last decision was less that 5 cycles ago 
-          // ^ we use 5 because of page 88 in Gao's thesis
-          //std::cout << "same" << std::endl;
-          int action = WM->getLastAction();    // then continue with same action
-          // ^ we use 5 cycles because that's what we used in the thesis
-      } else { // randomly choose next action
-          int action = rand() % WM->getNumKeepers();
-          action = 0;
-          //std::cout << "player " << WM->getPlayerNumber() << "action: " << action << std::endl;
-          WM->setTimeLastDecision( WM->getCurrentCycle() );
-      }
-
-      if (action == 0) { // go to ball
           // try to intercept the ball
           ACT->putCommandInQueue( soc = intercept( false ) );
           ACT->putCommandInQueue( turnNeckToObject( OBJECT_BALL, soc ) );
