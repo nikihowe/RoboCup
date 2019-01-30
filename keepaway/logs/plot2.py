@@ -8,11 +8,11 @@ def smooth(y, box_pts):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
-def set_up_plot():
+def set_up_plot(argumentation=""):
     fig, ax = plt.subplots(figsize=(14, 7))
     ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     ax.yaxis.set_major_locator(plt.MultipleLocator(1))
-    plt.title("SMDP Sarsa(lambda) , 3v2, 20x20")
+    plt.title("SMDP Sarsa(lambda) , 3v2, 20x20 {}".format(argumentation))
     plt.xlabel("Learning Time (hours)")
     plt.ylabel("Episode Duration (seconds)")
     plt.ylim((4, 17))
@@ -82,6 +82,7 @@ if __name__ == "__main__":
             to_plot = extract_data(my_file, sys.argv[1])
             plot_smooth(to_plot)
     plt.show()
-    set_up_plot()
+    arg = "with Argumentation" if len(sys.argv) > 2 else ""
+    set_up_plot(arg)
     plot_average(sys.argv[1])
     plt.show()
