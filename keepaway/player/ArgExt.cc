@@ -575,6 +575,8 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
     Value val = getValue(arg);
+    return 2; // TODO: this is temporary, to see if it trains better
+    // using the value from the thesis
     switch (sit) {
         case Safe:
             //std::cout << "Safe" << std::endl;

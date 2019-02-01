@@ -25,7 +25,9 @@ def plot_smooth(values, amount=1):
     #fig, ax = plt.subplots(figsize=(14, 7))
     #ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     #ax.yaxis.set_major_locator(plt.MultipleLocator(1))
-    plt.plot(x, smooth(y, amount*900), 'b-', lw = 2)
+    window_size = np.sqrt(amount)*900
+    half = int(window_size//2)
+    plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2)
     #plt.xlim(right=np.max(x))
     #plt.title("SMDP Sarsa(lambda) {}, 3v2, 20x20 {}".format(argumentation, title))
     #plt.xlabel("Learning Time (hours)")

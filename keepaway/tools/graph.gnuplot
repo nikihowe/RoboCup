@@ -25,7 +25,7 @@ set multiplot
 set xrange [-0.5:36]
 set xlabel "Training Time (hours)"
 
-set yrange [5.5:13.5]
+set yrange [5.5:16.5]
 set ylabel "Episode Duration (seconds)"
 
 # Plot Data

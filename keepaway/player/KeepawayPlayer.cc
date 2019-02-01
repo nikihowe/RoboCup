@@ -497,7 +497,7 @@ ObjectT KeepawayPlayer::chooseLookObject( double ballThr )
 SoccerCommand KeepawayPlayer::taker()
 {
     bool handCoded = false; // Niki-added. toggle for different taker policy.
-    //handCoded = true;
+    handCoded = true;
 
     if (handCoded) {
         SoccerCommand soc;
