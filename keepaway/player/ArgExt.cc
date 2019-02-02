@@ -369,7 +369,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // NOTE: could use grounded extension in the future
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
-    
+
     std::set<Argument> ext = choosePrefExt(prefExts);
 
     int supportedAction = getActionFromExt(ext);
@@ -579,8 +579,8 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
-    std::cout << "curCycle: " << episodeCount << std::endl;
-    double scaling = 0.9 * (episodeCount / 1000);
+    //std::cout << "currentEpisode: " << episodeCount << std::endl;
+    double scaling = pow(0.9, episodeCount / 1000);
     Value val = getValue(arg);
     switch (sit) {
         case Safe:
