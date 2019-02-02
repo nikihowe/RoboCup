@@ -43,9 +43,13 @@ protected:
   
   int epochNum;
   int lastAction;
+  // Niki-added
   std::vector<double> lastLocalState;
   std::vector<double> curTable;
   std::vector<double> nextTable;
+
+  // Niki
+  long episodeCount;
   
   // Added by Niki
   //double lastState[ MAX_STATE_VARS ];
@@ -310,6 +314,7 @@ ArgumentationAgent::ArgumentationAgent(
   lastLocalState = std::vector<double>(13, -1); // initialize state to nothing
   curTable  = std::vector<double>(NUM_ACTIONS, 0);
   nextTable = std::vector<double>(NUM_ACTIONS, 0);
+  episodeCount = 0;
 
   numNonzeroTraces = 0;
   weights = weightsRaw;
@@ -574,30 +579,30 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
+    std::cout << "curCycle: " << episodeCount << std::endl;
+    double scaling = 0.9 * (episodeCount / 1000);
     Value val = getValue(arg);
-    return 2; // TODO: this is temporary, to see if it trains better
-    // using the value from the thesis
     switch (sit) {
         case Safe:
             //std::cout << "Safe" << std::endl;
             switch (val) {
-                case MK: return 40;
-                case IT: return 20;
-                case TK: return 10;
+                case MK: return 40 * scaling;
+                case IT: return 20 * scaling;
+                case TK: return 10 * scaling;
             }
         case UnderThreat:
             //std::cout << "Under Threat" << std::endl;
             switch (val) {
-                case MK: return 10;
-                case IT: return 20;
-                case TK: return 5;
+                case MK: return 10 * scaling;
+                case IT: return 20 * scaling;
+                case TK: return 5  * scaling;
             }
         case InDanger:
             //std::cout << "In Danger" << std::endl;
             switch (val) {
-                case MK: return 0;
-                case IT: return 25;
-                case TK: return 5;
+                case MK: return 0  * scaling;
+                case IT: return 25 * scaling;
+                case TK: return 5  * scaling;
             }
         default:
             assert(false);
@@ -1075,7 +1080,7 @@ int ArgumentationAgent::step( double reward, double state[] )
     //std::vector<double> ls = world.getLastGlobalState();
     //assert(ls.size() == 13);
     //double *a = &ls[0];
-    double *a = &lastLocalState[0];
+    //double *a = &lastLocalState[0];
     //oldPotential = getPotential(a, world.getLastGlobalAction());
     // TODO
     //oldPotential = getPotential(a, lastAction);
@@ -1216,7 +1221,7 @@ void ArgumentationAgent::endEpisode( double reward )
     // Niki-written
     //std::vector<double> ls = world.getLastGlobalState();
     //double *a = &ls[0];
-    double *a = &lastLocalState[0];
+    //double *a = &lastLocalState[0];
     if (DEBUGPRINT) {
       std::cout << "player " << world.getPlayerNumber() << " stop!" << std::endl;
       //std::cout << "last local state  ";
@@ -1256,6 +1261,7 @@ void ArgumentationAgent::endEpisode( double reward )
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
+  episodeCount++;
 }
 
 void ArgumentationAgent::shutDown()
