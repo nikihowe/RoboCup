@@ -54,7 +54,7 @@ plt.title("SMDP Sarsa(lambda) {}, 3v2, 20x20".format(argumentation))
 plt.xlabel("Learning Time (hours)")
 plt.ylabel("Episode Duration (seconds)")
 plt.ylim((4, 16))
-plt.xlim((0, 40))
+plt.xlim((0, 100))
 plt.grid()
 plt.style.use("classic") 
 # Set figure width to 12 and height to 9

@@ -12,7 +12,7 @@ def set_up_plot(argumentation=""):
     fig, ax = plt.subplots(figsize=(14, 7))
     ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     ax.yaxis.set_major_locator(plt.MultipleLocator(1))
-    plt.title("SMDP Sarsa(lambda) , 3v2, 20x20 {}".format(argumentation))
+    plt.title(r"SMDP SARSA($\lambda$), 3 vs 2 players, 20 x 20 field")
     plt.xlabel("Learning Time (hours)")
     plt.ylabel("Episode Duration (seconds)")
     plt.ylim((4, 17))
@@ -20,14 +20,20 @@ def set_up_plot(argumentation=""):
     plt.grid()
     plt.style.use("classic") 
 
-def plot_smooth(values, amount=1):
+def plot_smooth(values, values2=None, amount=1, amount2=1):
     x, y, title, argumentation = values
     #fig, ax = plt.subplots(figsize=(14, 7))
     #ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     #ax.yaxis.set_major_locator(plt.MultipleLocator(1))
-    window_size = np.sqrt(amount)*900
+    window_size = 900 * np.sqrt(amount)
     half = int(window_size//2)
-    plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2)
+    plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2, label=r"SARSA($\lambda$) with Argumentation")
+    if values2:
+        xx, yy, t, a = values2
+        window_size2 = 900 * np.sqrt(amount2)
+        half2 = int(window_size2//2)
+        plt.plot(xx[half2:-half2], smooth(yy, window_size2)[half2:-half2], 'r-', lw = 2, label=r"SARSA($\lambda$)")
+    plt.legend(loc=4)
     #plt.xlim(right=np.max(x))
     #plt.title("SMDP Sarsa(lambda) {}, 3v2, 20x20 {}".format(argumentation, title))
     #plt.xlabel("Learning Time (hours)")
@@ -53,7 +59,7 @@ def extract_data(filename, the_dir):
     taken_or_out = a[:,4]
     return (training_time, episode_duration, filename, argumentation)
 
-def plot_average(the_dir):
+def prepare_average(the_dir):
     training_times = []
     episode_durations = []
     for i, my_file in enumerate(os.listdir(the_dir)):
@@ -74,9 +80,19 @@ def plot_average(the_dir):
     for a, b in my_pairs:
         sorted_tt.append(a)
         sorted_ep.append(b)
-    plot_smooth((sorted_tt, sorted_ep, "hi", "ho"), maxval)
+    return (sorted_tt, sorted_ep, "hi", "ho", maxval)
+
+def plot_average(the_dir, the_dir2 = None):
+    sorted_tt, sorted_ep, a, b, maxval = prepare_average(the_dir)
+    if the_dir2:
+        stt2, sep2, a2, b2, maxval2 = prepare_average(the_dir2)
+        plot_smooth((sorted_tt, sorted_ep, a, b),
+                (stt2, sep2, a2, b2), amount=maxval, amount2 = maxval2)
+    else:
+        plot_smooth((sorted_tt, sorted_ep, a, b), amount=maxval)
 
 if __name__ == "__main__":
+    '''
     #plot_average(sys.argv[1])
     set_up_plot()
     for i,my_file in enumerate(os.listdir(sys.argv[1])):
@@ -85,6 +101,11 @@ if __name__ == "__main__":
             plot_smooth(to_plot)
     plt.show()
     arg = "with Argumentation" if len(sys.argv) > 2 else ""
-    set_up_plot(arg)
-    plot_average(sys.argv[1])
+    '''
+    set_up_plot()
+    
+    if len(sys.argv) > 2:
+        plot_average(sys.argv[1], sys.argv[2])
+    else:
+        plot_average(sys.argv[1])
     plt.show()
