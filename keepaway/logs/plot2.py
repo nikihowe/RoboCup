@@ -62,13 +62,14 @@ def extract_data(filename, the_dir):
 def prepare_average(the_dir):
     training_times = []
     episode_durations = []
+    dir_size = 0
     for i, my_file in enumerate(os.listdir(the_dir)):
         if ".kwy" in my_file:
+            dir_size += 1
             tt, ed, fi, ar = extract_data(my_file, the_dir)
             training_times = np.concatenate((training_times, tt), axis=None)
             episode_durations = np.concatenate((episode_durations, ed), axis=None)
             print(my_file)
-    maxval = len(os.listdir(the_dir))
 
     # Now take average
     my_pairs = []
@@ -80,7 +81,7 @@ def prepare_average(the_dir):
     for a, b in my_pairs:
         sorted_tt.append(a)
         sorted_ep.append(b)
-    return (sorted_tt, sorted_ep, "hi", "ho", maxval)
+    return (sorted_tt, sorted_ep, "hi", "ho", dir_size)
 
 def plot_average(the_dir, the_dir2 = None):
     sorted_tt, sorted_ep, a, b, maxval = prepare_average(the_dir)
