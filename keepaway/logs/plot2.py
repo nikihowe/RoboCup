@@ -20,20 +20,26 @@ def set_up_plot(argumentation=""):
     plt.grid()
     plt.style.use("classic") 
 
-def plot_smooth(values, values2=None, amount=1, amount2=1):
+def plot_smooth(values, values2=None, amount=1,
+        amount2=1, colour=None, transp=None, legend=False):
     x, y, title, argumentation = values
     #fig, ax = plt.subplots(figsize=(14, 7))
     #ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     #ax.yaxis.set_major_locator(plt.MultipleLocator(1))
     window_size = 900 * np.sqrt(amount)
     half = int(window_size//2)
-    plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2, label=r"SARSA($\lambda$) with Argumentation")
+    if colour and transp:
+        plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2, label=r"SARSA($\lambda$) with Argumentation", color=colour, alpha=transp)
+    else:
+        plt.plot(x[half:-half], smooth(y, window_size)[half:-half], 'b-', lw = 2, label=r"SARSA($\lambda$) with Argumentation")
+
     if values2:
         xx, yy, t, a = values2
         window_size2 = 900 * np.sqrt(amount2)
         half2 = int(window_size2//2)
         plt.plot(xx[half2:-half2], smooth(yy, window_size2)[half2:-half2], 'r-', lw = 2, label=r"SARSA($\lambda$)")
-    plt.legend(loc=4)
+    #if legend:
+        #plt.legend(loc=4)
     #plt.xlim(right=np.max(x))
     #plt.title("SMDP Sarsa(lambda) {}, 3v2, 20x20 {}".format(argumentation, title))
     #plt.xlabel("Learning Time (hours)")
@@ -88,22 +94,26 @@ def plot_average(the_dir, the_dir2 = None):
     if the_dir2:
         stt2, sep2, a2, b2, maxval2 = prepare_average(the_dir2)
         plot_smooth((sorted_tt, sorted_ep, a, b),
-                (stt2, sep2, a2, b2), amount=maxval, amount2 = maxval2)
+                (stt2, sep2, a2, b2), amount=maxval, amount2 = maxval2, legend=True)
     else:
-        plot_smooth((sorted_tt, sorted_ep, a, b), amount=maxval)
+        plot_smooth((sorted_tt, sorted_ep, a, b), amount=maxval, legend=True)
 
 if __name__ == "__main__":
-    '''
+    
     #plot_average(sys.argv[1])
     set_up_plot()
     for i,my_file in enumerate(os.listdir(sys.argv[1])):
         if ".kwy" in my_file:
             to_plot = extract_data(my_file, sys.argv[1])
-            plot_smooth(to_plot)
-    plt.show()
+            plot_smooth(to_plot, colour="blue", transp=0.2) # data, colour, transparent
+    for i,my_file in enumerate(os.listdir(sys.argv[2])):
+        if ".kwy" in my_file:
+            to_plot = extract_data(my_file, sys.argv[2])
+            plot_smooth(to_plot, colour="red", transp=0.2)
+    #plt.show()
     arg = "with Argumentation" if len(sys.argv) > 2 else ""
-    '''
-    set_up_plot()
+    
+    #set_up_plot()
     
     if len(sys.argv) > 2:
         plot_average(sys.argv[1], sys.argv[2])
