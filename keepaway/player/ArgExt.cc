@@ -580,7 +580,7 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
     //std::cout << "currentEpisode: " << episodeCount << std::endl;
-    double scaling = pow(0.9, episodeCount / 1000);
+    double scaling = max(0, 1.0 - episodeCount * 1.0 / 4000);
     Value val = getValue(arg);
     switch (sit) {
         case Safe:
