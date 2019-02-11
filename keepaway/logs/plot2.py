@@ -15,7 +15,7 @@ def set_up_plot(argumentation=""):
     plt.title(r"SMDP SARSA($\lambda$), 3 vs 2 players, 20 x 20 field")
     plt.xlabel("Learning Time (hours)")
     plt.ylabel("Episode Duration (seconds)")
-    plt.ylim((4, 17))
+    plt.ylim((4, 20))
     plt.xlim((0, 40))
     plt.grid()
     plt.style.use("classic") 
