@@ -77,8 +77,8 @@ OBJS_PLAYER	= $(SRCS_PLAYER:.cc=.o)
 
 # ==== RULES ==================================================
 
-all::	$(TARGET) demo_extension.so arg_ext.so
-	# ^ (niki added arg_ext)
+all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so
+	# ^ (niki added arg_ext and constant2)
 
 .cc.o:
 	$(COMPILE) -c -o $@ $(@F:%.o=%.cc)
@@ -91,6 +91,9 @@ demo_extension.so: DemoExtension.cc
 # Niki-written
 arg_ext.so: ArgExt.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext.so ArgExt.cc
+
+arg_ext_constant2.so: ArgExtConstant2.cc
+	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_constant2.so ArgExtConstant2.cc
 
 keepaway_player: $(OBJS_PLAYER)  
 	$(COMPILE) -o  $@ $(OBJS_PLAYER) ${CFLAGS_LIBS}
