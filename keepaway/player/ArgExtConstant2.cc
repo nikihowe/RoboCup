@@ -376,7 +376,8 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
 
     for (int action = 0; action < NUM_ACTIONS; action++) {
         if (action == supportedAction) {
-            shaping[action] += getGFromExt(ext, sit);
+            //shaping[action] += getGFromExt(ext, sit);
+            shaping[action] = 2;
         }
     }
     return shaping;
@@ -785,8 +786,7 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
     double total = 0;
     for (auto arg : args) {
         //std::cout << "argument " << arg << ": " << getRelevantPot(arg, sit) << std::endl;
-        //total += getRelevantPot(arg, sit);
-        total += 2;
+        total += getRelevantPot(arg, sit);
     }
     return total;
 }
