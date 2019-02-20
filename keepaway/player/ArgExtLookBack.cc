@@ -136,17 +136,6 @@ public:
   int getActionFromExt(std::set<Argument> &prefExt);
   double getGFromExt(std::set<Argument> &prefExt, Situation sit);
   
-  // sets the "lastLocalState" vector to the current state
-  void setLastLocalState( double state[] ) { 
-      if (lastLocalState.size() < 13) {
-          std::cerr << "------last state not initialized!------" << std::endl;
-          assert(false);
-      }
-      for (int i = 0; i < 13; i++) {
-          lastLocalState[i] = state[i];
-      }
-  }
-
   void printDVec( std::vector<double> a, int size ) {
       for (int i = 0; i < size; i++) {
           std::cout << a[i] << " ";
