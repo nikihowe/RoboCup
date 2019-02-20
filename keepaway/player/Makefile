@@ -95,6 +95,9 @@ arg_ext.so: ArgExt.cc
 arg_ext_constant2.so: ArgExtConstant2.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_constant2.so ArgExtConstant2.cc
 
+arg_ext_lookback.so: ArgExtLookBack.cc
+	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_lookback.so ArgExtLookBace.cc
+
 keepaway_player: $(OBJS_PLAYER)  
 	$(COMPILE) -o  $@ $(OBJS_PLAYER) ${CFLAGS_LIBS}
 
