@@ -528,31 +528,28 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
-    //std::cout << "currentEpisode: " << episodeCount << std::endl;
-    double scaling = max(0, 1.0 - episodeCount * 1.0 / 4000);
-    //std::cout << "scaling: " << scaling << std::endl;
     Value val = getValue(arg);
     switch (sit) {
         case Safe:
             //std::cout << "Safe" << std::endl;
             switch (val) {
-                case MK: return 40 * scaling;
-                case IT: return 20 * scaling;
-                case TK: return 10 * scaling;
+                case MK: return 40;
+                case IT: return 20;
+                case TK: return 10;
             }
         case UnderThreat:
             //std::cout << "Under Threat" << std::endl;
             switch (val) {
-                case MK: return 10 * scaling;
-                case IT: return 20 * scaling;
-                case TK: return 5  * scaling;
+                case MK: return 10;
+                case IT: return 20;
+                case TK: return 5;
             }
         case InDanger:
             //std::cout << "In Danger" << std::endl;
             switch (val) {
-                case MK: return 0  * scaling;
-                case IT: return 25 * scaling;
-                case TK: return 5  * scaling;
+                case MK: return 0;
+                case IT: return 25;
+                case TK: return 5;
             }
         default:
             assert(false);
@@ -740,6 +737,8 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
         total += getRelevantPot(arg, sit);
     }
     return total;
+    //double scaling = max(0, 1.0 - episodeCount * 1.0 / 4000);
+    //return total * scaling;
 }
 
 bool ArgumentationAgent::checkOpen(double state[], int i) {
