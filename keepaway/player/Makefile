@@ -77,8 +77,8 @@ OBJS_PLAYER	= $(SRCS_PLAYER:.cc=.o)
 
 # ==== RULES ==================================================
 
-all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so
-	# ^ (niki added arg_ext and constant2)
+all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so arg_ext_lookback.so
+	# ^ (niki added arg_ext and constant2 and lookback)
 
 .cc.o:
 	$(COMPILE) -c -o $@ $(@F:%.o=%.cc)
