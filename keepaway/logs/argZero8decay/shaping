@@ -1,0 +1,2 @@
+double scaling = pow(0.8, episodeCount / 1000); 
+
