@@ -43,18 +43,17 @@ protected:
   
   int epochNum;
   int lastAction;
-  // Niki-added
-  std::vector<double> lastLocalState;
-  std::vector<double> curTable;
-  std::vector<double> nextTable;
-  double oldPot;
-  double oldPot2;
+  // Niki-added (look-back uses e-greedy, so don't need tables)
+  //std::vector<double> prevTable; // used in look-back
+  //std::vector<double> curTable;
+  //std::vector<double> nextTable;
+  double oldPot; // potential of last state action pair (s_{t-1}, a_{t-1})
+  double oldPot2; // potential of pair before that (s_{t-2}, a_{t-2})
 
-  // Niki
+  // Niki added for decaying shaping signal
   long episodeCount;
   
-  // Added by Niki
-  //double lastState[ MAX_STATE_VARS ];
+  // Niki added for argumentation frameworks
   enum Situation { Safe, UnderThreat, InDanger };
   enum Value { MK, IT, TK };
   enum Argument { H, O1, O2, F1, F2 };
@@ -137,17 +136,6 @@ public:
   int getActionFromExt(std::set<Argument> &prefExt);
   double getGFromExt(std::set<Argument> &prefExt, Situation sit);
   
-  // sets the "lastLocalState" vector to the current state
-  void setLastLocalState( double state[] ) { 
-      if (lastLocalState.size() < 13) {
-          std::cerr << "------last state not initialized!------" << std::endl;
-          assert(false);
-      }
-      for (int i = 0; i < 13; i++) {
-          lastLocalState[i] = state[i];
-      }
-  }
-
   void printDVec( std::vector<double> a, int size ) {
       for (int i = 0; i < size; i++) {
           std::cout << a[i] << " ";
@@ -313,11 +301,10 @@ ArgumentationAgent::ArgumentationAgent(
 
   epochNum = 0;
   lastAction = -1;
-  lastLocalState = std::vector<double>(13, -1); // initialize state to nothing
-  curTable  = std::vector<double>(NUM_ACTIONS, 0);
-  nextTable = std::vector<double>(NUM_ACTIONS, 0);
+  // Niki added, for look-back advice want to start with no potential
   oldPot = 0;
   oldPot2 = 0;
+  // We start at episode 0 (for decaying shaping signal)
   episodeCount = 0;
 
   numNonzeroTraces = 0;
@@ -388,76 +375,37 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
 
 double ArgumentationAgent::getPotential(double state[], int action) {
 
-    //std::cout << "state: ";
-    //for (int i = 0; i < 13; i++) {
-        //std::cout << state[i] << " ";
-    //}
-    //std::cout << std::endl;
-    //std::cout << "action: " << action << std::endl;
+    double pot = 0;
 
-    //double start = clock();
     // args will contain all applicable arguments
     std::set<Argument> args = getApplicableArguments(state);
-    
-    // Get the current situation
     Situation sit = getSituation(state);
 
-    /* THIS IS THE STANDARD WAY OF DOING IT, BUT TOO SLOW
     // For now, everything supporting different actions
     // attacks everything else
     std::set< std::pair<Argument, Argument> > attacks =
         setAllAttacks(args, sit);
-    //double setAllAttacks = clock();
 
     // Simplify the framework based on the situation
     simplifyFramework(attacks, sit);
-    //double afterSimplified = clock();
 
-    // Get the preferred extension from the simplified framework
-    // TODO: still need to implement this. will use labelling system.
+    // Get the preferred extensions from the simplified framework
     // NOTE: could use grounded extension in the future
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
-    */
 
-    // New way of doing extensions (decision tree)
-    std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
-    //double afterPreferredExts = clock();
-
-    // New way of supporting (support all; not random)
-    /*
-    double toRet = 0;
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        if (action == supAct) {
-            toRet += getGFromExt(prefExt, sit);
-        }
-    }
-    */
-
-    // Randomly choose one of the preferred extensions
-    // and get the corresponding action
+    // Choose from the preferred extensions
     std::set<Argument> ext = choosePrefExt(prefExts);
-    int supportedAction = getActionFromExt(ext);
-    //double afterActionChosen = clock();
 
-    // If the supported action matches the actual action,
-    // return the corresponding potential. Else, return 0.
-    //std::cout << "chosen action: " << action << std::endl;
-    //std::cout << "recommended action: " << supportedAction << std::endl;
-    double toRet = 0;
+    // Exctract the action from the extension
+    int supportedAction = getActionFromExt(ext);
+
+    // Add shaping if this action was the one we chose
     if (action == supportedAction) {
-        //std::cout << "match" << std::endl;
-        toRet += getGFromExt(ext, sit);
-    } else {
-        //std::cout << "mismatch, pot: 0" << std::endl;
+        pot += getGFromExt(ext, sit);
     }
-    //std::cout << "set attacks " << (setAllAttacks - start)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "simplify " << (afterSimplified - setAllAttacks)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "get preferred " << (afterPreferredExts - afterSimplified)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "get preferred " << (afterPreferredExts - start)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "chose action " << (afterActionChosen - afterPreferredExts)/CLOCKS_PER_SEC << std::endl;
-    return toRet;
+
+    return pot;
 }
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
@@ -791,10 +739,9 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
         //std::cout << "argument " << arg << ": " << getRelevantPot(arg, sit) << std::endl;
         total += getRelevantPot(arg, sit);
     }
-    //double scaling = episodeCount > 1000 ? 0 : 1;
-    //max(0, 1.0 - episodeCount * 1.0 / 4000);
-    double scaling = pow(0.8, episodeCount / 1000);
-    return total * scaling;
+    return total;
+    //double scaling = max(0, 1.0 - episodeCount * 1.0 / 4000);
+    //return total * scaling;
 }
 
 bool ArgumentationAgent::checkOpen(double state[], int i) {
@@ -997,62 +944,43 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 // End of Niki-written
 int ArgumentationAgent::startEpisode( double state[] )
 {
-    double start = clock();
-    //std::cout << clock() << std::endl;;
-    //std::cout << "Episode Start. State: ";
-    //for (int i = 0; i < 13; i++) {
-        //std::cout << state[i] << " ";
-    //}
-    //std::cout << std::endl;
-    //std::cout << getSituation(state) << std::endl;
+  double start = clock();
 
   if (hiveMind) loadColTabHeader(colTab, weights);
+
   epochNum++;
   decayTraces( 0 );
   loadTiles( state );
+
+  // Q is expected return over all actions, starting in this state
+  // The array Q can be thought of as a row of the table
+  // Q[s,a], where s is the function parameter of startEpisode.
   for ( int a = 0; a < getNumActions(); a++ ) {
-    Q[ a ] = computeQ( a ); // calculate Q for this state, across all actions
+    Q[ a ] = computeQ( a );
   }
-
   
-  if (DEBUGPRINT) {
-      std::cout << "player " << world.getPlayerNumber() << " start!" << std::endl;
-      //std::cout << "last local action " << lastAction << std::endl;
-      //std::cout << "last WM action " << world.getLastAction() << std::endl;
-      //std::cout << "time last action " << world.getTimeLastAction() << std::endl;
-      //std::cout << "last local state  ";
-      //printDVec(lastLocalState);
-  }
-  // TODO
-  //lastAction = selectAction(); TODO: this is what we would usually use
-  curTable = getPotentialOverActions(state); // fill the curr table
-  //printDVec(curTable, NUM_ACTIONS);
-  //lastAction = selectBiasedAction(curTable);
+  // Look-back, so use epsilon greedy looking at Q
   lastAction = selectAction();
-  // TODO ^^ choosing a biased action
-  if (DEBUGPRINT) {
-      //std::cout << "curr state  ";
-      //printDArr(state);
-      //std::cout << "curr action " << lastAction << std::endl;
-  }
 
+  // Record the potential phi(state, lastAction)
+  // for later use in shaping
+  //TODO: oldPot = getPotential(state, lastAction);
+
+  // Log stuff
   char buffer[128];
   sprintf( buffer, "Q[%d] = %.2f", lastAction, Q[lastAction] );
   LogDraw.logText( "Qmax", VecPosition( 25, -30 ),
                    buffer,
                    1, COLOR_BROWN );
 
+  // Update eligibility traces
   for ( int j = 0; j < numTilings; j++ )
     setTrace( tiles[ lastAction ][ j ], 1.0 );
+
+  // If all players share same 
   if (hiveMind) saveWeights(weightsFile);
 
-  // These are the only things that have changed
-  setLastLocalState( state );
-  //world.setLastGlobalAction( lastAction );
-  //world.setLastGlobalState( state );
-  if (DEBUGPRINT) {
-      std::cout << "curr time " << world.getCurrentTime() << std::endl;
-  }
+  // Check timing
   double end = clock();
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
@@ -1064,76 +992,34 @@ int ArgumentationAgent::startEpisode( double state[] )
 
 int ArgumentationAgent::step( double reward, double state[] )
 {
-    //std::cout << clock() << std::endl;;
-    //std::cout << "Step. ";
-    //std::cout << "Last state: ";
-    //std::vector<double> lastState = world.getLastGlobalState();
-    //for (int i = 0; i < 13; i++) {
-        //std::cout << lastState[i] << " ";
-    //}
-    //std::cout << std::endl;
-    //std::cout << "Last action: " << world.getLastAction() << std::endl;
-    //std::cout << "Current state: ";
-    //for (int i = 0; i < 13; i++) {
-        //std::cout << state[i] << " ";
-    //}
-    //std::cout << std::endl;
-    //std::cout << getSituation(state) << std::endl;
   double start = clock();
-  // Niki-written (line 9)
-  double oldPotential = 0;
-  if (bLearning) {
-    //std::vector<double> ls = world.getLastGlobalState();
-    //assert(ls.size() == 13);
-    //double *a = &ls[0];
-    //double *a = &lastLocalState[0];
-    //oldPotential = getPotential(a, world.getLastGlobalAction());
-    // TODO
-    //oldPotential = getPotential(a, lastAction);
-    oldPotential = curTable[lastAction];
-    // TODO
-    //std::cout << "old potential: " << oldPotential << std::endl;
-  }
-  //std::cout << getSituation(lastState) << " " << lastAction << " -> ";
-
+  
+  // If all agents are sharing same Q table
   if (hiveMind) loadColTabHeader(colTab, weights);
+
   double delta = reward - Q[ lastAction ];
+
+  // Load the tiles and compute Q for this state across all actions
   loadTiles( state );
   for ( int a = 0; a < getNumActions(); a++ ) {
-    Q[ a ] = computeQ( a ); // calculate Q for this state, across all actions
+    Q[ a ] = computeQ( a );
   }
 
-  if (DEBUGPRINT) {
-      std::cout << "player " << world.getPlayerNumber() << " step" << std::endl;
-      //std::cout << "last local state  ";
-      //printDVec(lastLocalState);
-      //std::cout << "last local action " << lastAction << std::endl;
-      //std::cout << "last WM action " << world.getLastAction() << std::endl;
-      //std::cout << "time last action " << world.getTimeLastAction() << std::endl;
-      std::cout << "reward ---       " << reward << std::endl;
-  }
-  //lastAction = selectAction();
-  // TODO
-  nextTable = getPotentialOverActions(state); // fill the curr table
-  //printDVec(nextTable, NUM_ACTIONS);
-  //lastAction = selectBiasedAction(nextTable);
-  lastAction = selectAction();
-  // TODO
-  if (DEBUGPRINT) {
-      //std::cout << "curr state  ";
-      //printDArr(state);
-      //std::cout << "curr action " << lastAction << std::endl;
-  }
+  // Select action in epsilon-greedy way over Q
+  int lastAction = selectAction();
 
+  // Log stuff
   char buffer[128];
   sprintf( buffer, "Q[%d] = %.2f", lastAction, Q[lastAction] );
   LogDraw.logText( "Qmax", VecPosition( 25, -30 ),
                    buffer,
                    1, COLOR_BROWN );
 
+  // If not learning, don't update Q values, and exit here
   if ( !bLearning )
     return lastAction;
 
+  // More Logging
   //char buffer[128];
   sprintf( buffer, "reward: %.2f", reward ); 
   LogDraw.logText( "reward", VecPosition( 25, 30 ),
@@ -1141,22 +1027,14 @@ int ArgumentationAgent::step( double reward, double state[] )
                    1, COLOR_NAVY );
 
   delta += Q[ lastAction ]; // Assumes gamma==1
-  // ^ this is Q(s', a') because we recalculated in 955
 
-  // Niki-written
-  //TODO
-  //double newPotential = getPotential(state, lastAction);
-  double newPotential = nextTable[lastAction];
-  //TODO
-  //std::cout << "new potential: " << newPotential << std::endl;
-  //delta += newPotential - oldPotential; // Assumes gamma==1
-  //std::cout << getSituation(state) << " " << lastAction << std::endl;
-  //std::cout << newPotential << " - " << oldPotential << " = ";
-  //std::cout << newPotential - oldPotential << std::endl << std::flush;
+  // Calculate potential phi(state, lastAction) for use later
+  //TODO: double newPot = getPotential(state, lastAction);
 
-  //std::cout << "Reward before shaping: " << reward << std::endl;
-  //std::cout << "Reward after shaping:  " << reward + newPotential - oldPotential << "\n" << std::endl;
+  //TODO: re-activate delta += oldPot - oldPot2; // Assumes gamma==1
 
+  // Update weights based on delta and eligibility traces
+  // then decay traces
   updateWeights( delta );
   Q[ lastAction ] = computeQ( lastAction ); // need to redo because weights changed
   decayTraces( gamma * lambda );
@@ -1170,38 +1048,31 @@ int ArgumentationAgent::step( double reward, double state[] )
   for ( int j = 0; j < numTilings; j++ )      //replace/set traces F[a]
     setTrace( tiles[ lastAction ][ j ], 1.0 );
 
+  // If all agents share the same Q table
   if (hiveMind) saveWeights(weightsFile);
 
-  // Niki-written
-  //for (int i = 0; i < MAX_STATE_VARS; i++) {
-      //lastState[i] = state[i];
-  //}
-  // This is actually handled automatically by the world model
+  // Check timing
   double end = clock();
-
-  setLastLocalState( state );
-  //world.setLastGlobalAction( lastAction );
-  //world.setLastGlobalState( state );
-  
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
-  if (DEBUGPRINT) {
-      std::cout << "shaping          " << newPotential - oldPotential << std::endl;
-      std::cout << "curr time " << world.getCurrentTime() << std::endl;
-  }
-  //TODO
-  curTable = nextTable; 
-  //TODO
+
+  // Update potential values for use later
+  // TODO: uncomment
+  //oldPot2 = oldPot;
+  //oldPot = newPot;
+
   return lastAction;
 }
-
 
 void ArgumentationAgent::endEpisode( double reward )
 {
   double start = clock();
+
+  // If all agents share a Q table
   if (hiveMind) loadColTabHeader(colTab, weights);
+
   if ( bLearning && lastAction != -1 ) { /* otherwise we never ran on this episode */
     char buffer[128];
     sprintf( buffer, "reward: %.2f", reward ); 
@@ -1209,65 +1080,40 @@ void ArgumentationAgent::endEpisode( double reward )
                      buffer,
                      1, COLOR_NAVY );
 
-    /* finishing up the last episode */
-    /* assuming gamma = 1  -- if not,error*/
-    if ( gamma != 1.0)
-      cerr << "We're assuming gamma's 1" << endl;
+    // Update delta (Q[s_now, a_now] = 0 because it's the end)
     double delta = reward - Q[ lastAction ];
+    //delta += oldPot - oldPot2;
 
-    //std::cout << clock() << std::endl;;
-    //std::cout << "End of Episode" << std::endl;
-    //std::vector<double> lastState = world.getLastGlobalState();
-    //std::cout << "Last state: ";
-    //std::vector<double> ls = world.getLastGlobalState();
-    //for (int i = 0; i < 13; i++) {
-        //std::cout << ls[i] << " ";
-    //}
-    //std::cout << "Last action: " << world.getLastGlobalAction() << std::endl;
-    //std::cout << std::endl;
-    // Niki-written
-    //std::vector<double> ls = world.getLastGlobalState();
-    //double *a = &ls[0];
-    //double *a = &lastLocalState[0];
-    if (DEBUGPRINT) {
-      std::cout << "player " << world.getPlayerNumber() << " stop!" << std::endl;
-      //std::cout << "last local state  ";
-      //printDVec(lastLocalState);
-      //std::cout << "last local action " << lastAction << std::endl;
-      //std::cout << "last WM action " << world.getLastAction() << std::endl;
-      //std::cout << "time last action " << world.getTimeLastAction() << std::endl;
-      std::cout << "reward ---       " << reward << std::endl;
-      std::cout << "curr time " << world.getCurrentTime() << std::endl;
-    }
-    //double oldPotential = getPotential(a, world.getLastGlobalAction());
-    // TODO
-    //double oldPotential = getPotential(a, lastAction); // 
-    double oldPotential = curTable[lastAction];
-    // TODO
-    //std::cout << "old potential: " << std::endl;
-    //delta -= oldPotential; // newPotential==0
-    if (DEBUGPRINT) {
-        std::cout << "shaping          " << (-1)*oldPotential << std::endl;
-    }
-    //std::cout << "Reward before shaping: " << reward << std::endl;
-    //std::cout << "Reward after shaping:  " << reward - oldPotential << std::endl;
-    //std::cout << "****End Episode****" << std::endl;
+    // Update the weights with eligibility traces
     updateWeights( delta );
     // TODO Actually, there's still possibly risk for trouble here with multiple
     // TODO players stomping each other. Is this okay?
     // TODO The weight updates themselves are in order.
   }
+
   // Save weights at random intervals
   if ( bLearning && bSaveWeights && rand() % 200 == 0 && !hiveMind ) {
     saveWeights( weightsFile );
   }
+
+  // If all agents share the same Q table
   if (hiveMind) saveWeights(weightsFile);
+
+  // Reset last action (shouldn't be necessary)
   lastAction = -1;
+
+  // Reset old potential so it doesn't interfere with new episode
+  oldPot = 0;
+  oldPot2 = 0;
+  
+  // Check timing
   double end = clock();
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
+
+  // This function is called at the end of each episode, so update how many we've seen
   episodeCount++;
 }
 
