@@ -787,8 +787,9 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
         //std::cout << "argument " << arg << ": " << getRelevantPot(arg, sit) << std::endl;
         total += getRelevantPot(arg, sit);
     }
-    double scaling = episodeCount > 1000 ? 0 : 1;
+    //double scaling = episodeCount > 1000 ? 0 : 1;
     //max(0, 1.0 - episodeCount * 1.0 / 4000);
+    double scaling = pow(0.8, episodeCount / 1000);
     return total * scaling;
 }
 
