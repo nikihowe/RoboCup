@@ -788,7 +788,9 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
         //std::cout << "argument " << arg << ": " << getRelevantPot(arg, sit) << std::endl;
         total += getRelevantPot(arg, sit);
     }
-    return total;
+    //double scaling = max(0, 1.0 - episodeCount * 1.0 / 4000);
+    double scaling = pow(0.8, episodeCount / 1000);
+    return total * scaling;
 }
 
 bool ArgumentationAgent::checkOpen(double state[], int i) {
@@ -1009,25 +1011,13 @@ int ArgumentationAgent::startEpisode( double state[] )
   }
 
   
-  if (DEBUGPRINT) {
-      std::cout << "player " << world.getPlayerNumber() << " start!" << std::endl;
-      //std::cout << "last local action " << lastAction << std::endl;
-      //std::cout << "last WM action " << world.getLastAction() << std::endl;
-      //std::cout << "time last action " << world.getTimeLastAction() << std::endl;
-      //std::cout << "last local state  ";
-      //printDVec(lastLocalState);
-  }
-  // TODO
-  //lastAction = selectAction(); TODO: this is what we would usually use
+  //lastAction = selectAction();
+  
   curTable = getPotentialOverActions(state); // fill the curr table
   //printDVec(curTable, NUM_ACTIONS);
   lastAction = selectBiasedAction(curTable);
   // TODO ^^ choosing a biased action
-  if (DEBUGPRINT) {
-      //std::cout << "curr state  ";
-      //printDArr(state);
-      //std::cout << "curr action " << lastAction << std::endl;
-  }
+  
 
   char buffer[128];
   sprintf( buffer, "Q[%d] = %.2f", lastAction, Q[lastAction] );
@@ -1041,8 +1031,6 @@ int ArgumentationAgent::startEpisode( double state[] )
 
   // These are the only things that have changed
   setLastLocalState( state );
-  //world.setLastGlobalAction( lastAction );
-  //world.setLastGlobalState( state );
   if (DEBUGPRINT) {
       std::cout << "curr time " << world.getCurrentTime() << std::endl;
   }
@@ -1172,15 +1160,13 @@ int ArgumentationAgent::step( double reward, double state[] )
   double end = clock();
 
   setLastLocalState( state );
-  //world.setLastGlobalAction( lastAction );
-  //world.setLastGlobalState( state );
   
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
   if (DEBUGPRINT) {
-      std::cout << "shaping          " << newPotential - oldPotential << std::endl;
+      //std::cout << "shaping          " << newPotential - oldPotential << std::endl;
       std::cout << "curr time " << world.getCurrentTime() << std::endl;
   }
   //TODO
@@ -1239,7 +1225,7 @@ void ArgumentationAgent::endEpisode( double reward )
     //std::cout << "old potential: " << std::endl;
     delta -= oldPotential; // newPotential==0
     if (DEBUGPRINT) {
-        std::cout << "shaping          " << (-1)*oldPotential << std::endl;
+        //  std::cout << "shaping          " << (-1)*oldPotential << std::endl;
     }
     //std::cout << "Reward before shaping: " << reward << std::endl;
     //std::cout << "Reward after shaping:  " << reward - oldPotential << std::endl;
