@@ -1,0 +1,2 @@
+double scaling = episodeCount > 1000 ? 0 : 1;
+
