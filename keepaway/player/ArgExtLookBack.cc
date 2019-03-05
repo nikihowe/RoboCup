@@ -400,10 +400,10 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     // args will contain all applicable arguments
     std::set<Argument> args = getApplicableArguments(state);
     
-    // Get the current situation
-    Situation sit = getSituation(state);
-
     /* THIS IS THE STANDARD WAY OF DOING IT, BUT TOO SLOW
+    // Get the current situation
+    //Situation sit = getSituation(state);
+
     // For now, everything supporting different actions
     // attacks everything else
     std::set< std::pair<Argument, Argument> > attacks =
@@ -442,22 +442,11 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     int supportedAction = getActionFromExt(ext);
     //double afterActionChosen = clock();
 
-    // If the supported action matches the actual action,
-    // return the corresponding potential. Else, return 0.
-    //std::cout << "chosen action: " << action << std::endl;
-    //std::cout << "recommended action: " << supportedAction << std::endl;
     double toRet = 0;
     if (action == supportedAction) {
-        //std::cout << "match" << std::endl;
-        toRet += getGFromExt(ext, sit);
-    } else {
-        //std::cout << "mismatch, pot: 0" << std::endl;
+        //toRet += getGFromExt(ext, sit);
+        toRet += 2;
     }
-    //std::cout << "set attacks " << (setAllAttacks - start)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "simplify " << (afterSimplified - setAllAttacks)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "get preferred " << (afterPreferredExts - afterSimplified)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "get preferred " << (afterPreferredExts - start)/CLOCKS_PER_SEC << std::endl;
-    //std::cout << "chose action " << (afterActionChosen - afterPreferredExts)/CLOCKS_PER_SEC << std::endl;
     return toRet;
 }
 
@@ -789,7 +778,6 @@ int ArgumentationAgent::getActionFromExt(std::set<Argument> &args) {
 double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) {
     double total = 0;
     for (auto arg : args) {
-        //std::cout << "argument " << arg << ": " << getRelevantPot(arg, sit) << std::endl;
         total += getRelevantPot(arg, sit);
     }
     //double scaling = episodeCount > 1000 ? 0 : 1;
@@ -1082,7 +1070,7 @@ int ArgumentationAgent::step( double reward, double state[] )
 
   // Niki-written
   double newPot = getPotential(state, lastAction);
-  //delta += oldPot - oldPot2; // Assumes gamma==1
+  delta += oldPot - oldPot2; // Assumes gamma==1
 
   updateWeights( delta );
   Q[ lastAction ] = computeQ( lastAction ); // need to redo because weights changed
@@ -1133,7 +1121,7 @@ void ArgumentationAgent::endEpisode( double reward )
     double delta = reward - Q[ lastAction ];
 
     // Niki-written
-    //delta += oldPot - oldPot2;
+    delta += oldPot - oldPot2;
     updateWeights( delta );
     // TODO Actually, there's still possibly risk for trouble here with multiple
     // TODO players stomping each other. Is this okay?
@@ -1156,7 +1144,6 @@ void ArgumentationAgent::endEpisode( double reward )
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
-
 }
 
 void ArgumentationAgent::shutDown()
