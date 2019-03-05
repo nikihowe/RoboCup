@@ -370,8 +370,15 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
 
-    std::set<Argument> ext = choosePrefExt(prefExts);
+    // TODO: below is recommend all actions
+    for (auto prefExt : prefExts) {
+        int supAct = getActionFromExt(prefExt);
+        shaping[supAct] += getGFromExt(prefExt, sit);
+    }
 
+    // TODO: below is single recommended action
+    /*
+    std::set<Argument> ext = choosePrefExt(prefExts);
     int supportedAction = getActionFromExt(ext);
 
     for (int action = 0; action < NUM_ACTIONS; action++) {
@@ -379,6 +386,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
             shaping[action] += getGFromExt(ext, sit);
         }
     }
+    */
     return shaping;
 }
 
