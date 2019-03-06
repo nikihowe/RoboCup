@@ -447,7 +447,8 @@ double ArgumentationAgent::getPotential(double state[], int action) {
         //toRet += getGFromExt(ext, sit);
         toRet += 2;
     }
-    return toRet;
+    decay = pow(0.8, episodeCount / 1000);
+    return decay*toRet;
 }
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
