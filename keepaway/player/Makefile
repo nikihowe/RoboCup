@@ -77,7 +77,7 @@ OBJS_PLAYER	= $(SRCS_PLAYER:.cc=.o)
 
 # ==== RULES ==================================================
 
-all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so arg_ext_lookback.so
+all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so arg_ext_lookback.so arg_ext_argthensarsa.so
 	# ^ (niki added arg_ext and constant2 and lookback)
 
 .cc.o:
@@ -94,6 +94,9 @@ arg_ext.so: ArgExt.cc
 
 arg_ext_constant2.so: ArgExtConstant2.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_constant2.so ArgExtConstant2.cc
+
+arg_ext_argthensarsa.so: ArgExtArgThenSarsa.cc
+	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_argthensarsa.so ArgExtArgThenSarsa.cc
 
 arg_ext_lookback.so: ArgExtLookBack.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_lookback.so ArgExtLookBack.cc
