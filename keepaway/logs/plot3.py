@@ -122,5 +122,5 @@ if __name__ == "__main__":
     arg = "with Argumentation"
     
     plot_average(sys.argv[1], sys.argv[2], sys.argv[3])
-    plt.legend()
+    #plt.legend()
     plt.show()
