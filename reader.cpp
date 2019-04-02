@@ -10,6 +10,7 @@
 std::vector<double> getLastState();
 
 int main(void) {
+    std::cout << "hello" << std::endl;
 
     unsigned int microseconds = 100;
     while (true) {
