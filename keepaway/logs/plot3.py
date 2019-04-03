@@ -20,6 +20,16 @@ def set_up_plot(argumentation=""):
     plt.grid()
     plt.style.use("classic") 
 
+def get_variance_one_pt(i, y, width):
+    length = len(y)
+    half = int(width//2)
+
+    if i < half or i > length - half:
+        return 0
+    else: # calculate the variance
+        pts = np.array(y[i - half:i + half])
+        return pts.var()
+
 def plot_smooth(values, amount=1, colour=None, transp=None, legend=False):
     x, y, title, argumentation = values
     window_size = 900 * np.sqrt(amount)
@@ -100,10 +110,46 @@ def plot_average(the_dir1, the_dir2, the_dir3):
         legend=True
     )
 
+def plot_mean_confidence_interval(the_dir, c):
+    sorted_tt, sorted_ep, a, b, maxval = prepare_average(the_dir)
+    sorted_tt = np.array(sorted_tt)
+    sorted_ep = np.array(sorted_ep)
+    upper_pts = []
+    lower_pts = []
+    xs = []
+    
+    window_size = 900 * np.sqrt(maxval)
+    half = int(window_size // 2)
+
+    #variances = np.array(get_variance(sorted_ep, window_size))
+    means = np.array(smooth(sorted_ep, window_size))
+
+    spaced_means = []
+    spaced_variances = []
+    spaced_tt = []
+    for i,_ in enumerate(sorted_ep):
+        if i % 100 == 0:
+            spaced_tt.append(sorted_tt[i])
+            spaced_means.append(means[i])
+            v = get_variance_one_pt(i, sorted_ep, window_size)
+            std_error = np.sqrt(v/window_size)
+            spaced_variances.append(std_error)
+    spaced_means = np.array(spaced_means)
+    spaced_variances = np.array(spaced_variances)
+
+    half = int(half/100)
+    spaced_means = spaced_means[half:-half]
+    spaced_variances = spaced_variances[half:-half]
+    spaced_tt = spaced_tt[half:-half]
+
+    plt.plot(spaced_tt, spaced_means + 1.96*spaced_variances, spaced_tt, spaced_means - 1.96*spaced_variances, ':', color = c, alpha=0.2)
+    plt.fill_between(spaced_tt, spaced_means + 1.96*spaced_variances, spaced_means - 1.96*spaced_variances, facecolor=c, alpha=0.2, interpolate=True)
+
 if __name__ == "__main__":
     
     set_up_plot()
 
+    '''
     for i,my_file in enumerate(os.listdir(sys.argv[1])):
         if ".kwy" in my_file:
             to_plot = extract_data(my_file, sys.argv[1])
@@ -118,9 +164,13 @@ if __name__ == "__main__":
         if ".kwy" in my_file:
             to_plot = extract_data(my_file, sys.argv[3])
             plot_smooth(to_plot, colour="red", transp=0.2)
+    '''
 
     arg = "with Argumentation"
     
     plot_average(sys.argv[1], sys.argv[2], sys.argv[3])
+    plot_mean_confidence_interval(sys.argv[1], 'blue')
+    plot_mean_confidence_interval(sys.argv[2], 'green')
+    plot_mean_confidence_interval(sys.argv[3], 'red')
     #plt.legend()
     plt.show()
