@@ -19,6 +19,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <map>
+#include <fstream>
+#include <iterator>
 
 #define RL_MEMORY_SIZE 1048576
 #define RL_MAX_NONZERO_TRACES 100000
@@ -75,6 +77,10 @@ protected:
   enum Value { MK, IT, TK };
   enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
   enum Label { IN, OUT, UNDEC };
+  
+  // Pre-computed extensions
+  // maps applicable arguments + sit -> pref exts
+  std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
   double alpha;
   double gamma;
@@ -129,6 +135,25 @@ public:
   // Support for extra modes and/or analysis.
   double getQ(int action);
   void setEpsilon(double epsilon);
+  
+  // Niki-written startup code
+  template <class T>
+  std::set< std::set<T> > getAllSubsets(std::vector<T> s);
+  void precomputeAllExtensions();
+
+
+void loadExtensions();
+void loadSingleExt( std::ifstream &in );
+std::set<Argument> getArgs(std::string line);
+Situation getSit(std::string line);
+
+template <class T>
+void printVec( std::vector<T> a, int size ) {
+  for (int i = 0; i < size; i++) {
+      std::cout << a[i] << " ";
+  }
+  std::cout << std::endl;
+}
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
@@ -334,6 +359,15 @@ ArgumentationAgent::ArgumentationAgent(
   lastLocalState = std::vector<double>(25, -1); // initialize state to nothing
   curTable  = std::vector<double>(NUM_ACTIONS, 0);
   nextTable = std::vector<double>(NUM_ACTIONS, 0);
+  std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
+  loadExtensions();
+  std::cout << myExts.size() << std::endl;
+  //if (world_.getPlayerNumber() == 0) {
+      //precomputeAllExtensions(); // Niki-made; does what it says
+      //std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
+  //} else {
+    //sleep(200);
+  //}
   episodeCount = 0;
 
   numNonzeroTraces = 0;
@@ -353,6 +387,7 @@ ArgumentationAgent::ArgumentationAgent(
 
   if ( strlen( loadWeightsFile ) > 0 )
     loadWeights( loadWeightsFile );
+  std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
 }
 
 double ArgumentationAgent::getQ(int action) {
@@ -366,6 +401,202 @@ void ArgumentationAgent::setEpsilon(double epsilon) {
   this->epsilon = epsilon;
 }
 
+void ArgumentationAgent::precomputeAllExtensions() {
+
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+
+    // All situations
+    std::vector<Situation> sits;
+    sits.push_back(Safe);
+    sits.push_back(UnderThreat);
+    sits.push_back(InDanger);
+
+    // Al args
+    std::vector<Argument> args;
+    args.push_back(H);
+    args.push_back(O1);
+    args.push_back(O2);
+    args.push_back(O3);
+    args.push_back(O4);
+    args.push_back(F1);
+    args.push_back(F2);
+    args.push_back(F3);
+    args.push_back(F4);
+
+    printVec(sits, sits.size());
+    printVec(args, args.size());
+
+    //std::set<Argument> s(v.begin(), v.end());
+    std::set< std::set<Argument> > allArgSets = getAllSubsets(args);
+
+    /*
+     * idea is: for each set of arguments, for each situaton, calculate and store the preferred extensions
+     */
+
+    for (Situation sit : sits) {
+        for (auto args : allArgSets) {
+
+            // Recurd the current index
+            std::pair<std::set<Argument>, Situation>
+                current(args, sit);
+
+            // Set up the arguments
+            std::set< std::pair<Argument, Argument> > attacks =
+                setAllAttacks(args, sit);
+
+            // Simplify based on situation
+            simplifyFramework(attacks, sit);
+
+            // Compute extensions (slow bit)
+            std::set< std::set<Argument> > prefExts =
+                getPreferredExtensions(args, attacks);
+
+            // Save result
+            //myExts.insert({current, prefExts}); 
+
+            std::cout << "args" << std::endl;
+            for (auto arg : args) {
+                std::cout << arg << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "sit" << std::endl;
+            std::cout << sit << std::endl;
+            std::cout << "exts" << std::endl;
+            for (auto ext : prefExts) {
+                for (auto arg : ext) {
+                    std::cout << arg << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+                
+        }
+    }
+}
+
+//std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+void ArgumentationAgent::loadExtensions() {
+    const char *name = "exts5v4.txt";
+
+    std::ifstream in(name);
+
+    if(!in) {
+        std::cout << "Cannot open input file." << std::endl;
+        return;
+    }
+
+    while (in.is_open()) {
+        loadSingleExt(in);
+        //std::cout << myExts.size() << std::endl;
+    }
+    std::cout << "done" << std::endl;
+}
+
+void ArgumentationAgent::loadSingleExt( std::ifstream &in ) {
+
+    // We'll return these
+    std::set<Argument> args;
+    Situation sit;
+    std::set< std::set<Argument> > exts;
+
+    // For parsing
+    std::string str;
+
+    // Get the arguments
+    while (getline(in, str)) { // whitespace and "args"
+        //std::cout << "str is " << str << std::endl;
+        if (str == "args") {
+            break;
+        } else if (str == "*") {
+            in.close();
+            return;
+        }
+    }
+    std::cout << str << std::endl;
+    std::getline(in, str); // the arguments
+    std::cout << str << std::endl;
+    if (!str.empty()) {
+        args = getArgs(str);
+    }
+
+    // Get the situation
+    std::getline(in, str); // "sit"
+    std::cout << str << std::endl;
+    std::getline(in, str); // the situation
+    std::cout << str << std::endl;
+    sit = getSit(str);
+
+    // Get the extensions
+    std::getline(in, str); // "exts"
+    std::cout << str << std::endl;
+    // the extensions (many lines)
+    while (std::getline(in, str) && !str.empty() && str != "*") {
+        std::set<Argument> ext = getArgs(str);
+        std::cout << str << std::endl;
+        exts.insert(ext);
+    }
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    myExts.insert({current, exts}); 
+    if (str == "*") {
+        in.close();
+        return;
+    }
+}
+
+std::set<ArgumentationAgent::Argument> ArgumentationAgent::getArgs(std::string str) {
+    std::istringstream iss(str);
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
+
+//enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
+    std::set<Argument> args;
+    for (auto s : tokens) {
+        if (s == "0") {
+            args.insert(H);
+        } else if (s == "1") {
+            args.insert(O1);
+        } else if (s == "2") {
+            args.insert(O2);
+        } else if (s == "3") {
+            args.insert(O3);
+        } else if (s == "4") {
+            args.insert(O4);
+        } else if (s == "5") {
+            args.insert(F1);
+        } else if (s == "6") {
+            args.insert(F2);
+        } else if (s == "7") {
+            args.insert(F3);
+        } else if (s == "8") {
+            args.insert(F4);
+        } else {
+            std::cerr << "whyyy" << std::endl;
+            assert(false);
+        }
+    }
+    return args;
+}
+
+ArgumentationAgent::Situation ArgumentationAgent::getSit(std::string str) {
+
+    std::istringstream iss(str);
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
+
+    Situation sit;
+//enum Situation { Safe, UnderThreat, InDanger };
+    if (str == "0") {
+        sit = Safe;
+    } else if (str == "1") {
+        sit = UnderThreat;
+    } else if (str == "2") {
+        sit = InDanger;
+    } else {
+        std::cerr << "whyyy" << std::endl;
+        std::cout << str << std::endl;
+        assert(false);
+    }
+    return sit;
+}
+
 std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) {
 
     std::vector<double> shaping(NUM_ACTIONS, 0);
@@ -376,6 +607,8 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Approach 1: below is the problem-specific, fast way of doing it
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
+    // XXX
+    /*
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -389,15 +622,19 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // NOTE: could use grounded extension in the future
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
+    */
 
-    // TODO: below is recommend all actions
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        shaping[supAct] += getGFromExt(prefExt, sit);
-    }
+    // Approach 3: use the pre-computed values
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    // TODO: below is single recommended action
-    /*
+    clock_t start = clock();
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    std::set< std::set<Argument> > prefExts = myExts[current];
+    clock_t end = clock();
+
+    std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
+
+    // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
     int supportedAction = getActionFromExt(ext);
 
@@ -406,8 +643,38 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
             shaping[action] += getGFromExt(ext, sit);
         }
     }
-    */
     return shaping;
+}
+
+// this works
+template <class T>
+std::set< std::set<T> > ArgumentationAgent::getAllSubsets(std::vector<T> set)
+{
+    std::vector< std::vector<T> > subset;
+    std::vector<T> empty;
+    subset.push_back( empty );
+
+    for (int i = 0; i < set.size(); i++)
+    {
+        std::vector< std::vector<T> > subsetTemp = subset;
+
+        for (int j = 0; j < subsetTemp.size(); j++)
+            subsetTemp[j].push_back( set[i] );
+
+        for (int j = 0; j < subsetTemp.size(); j++)
+            subset.push_back( subsetTemp[j] );
+    }
+
+    std::set< std::set<T> > toReturn;
+    for (int i = 0; i < subset.size(); i++) {
+        std::set<T> miniToReturn;
+        for (int j = 0; j < subset[i].size(); j++) {
+            miniToReturn.insert(subset[i][j]);
+        }
+        toReturn.insert(miniToReturn);
+    }
+    return toReturn;
+    //return subset;
 }
 
 double ArgumentationAgent::getPotential(double state[], int action) {

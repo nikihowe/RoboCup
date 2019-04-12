@@ -25,6 +25,7 @@ CFLAGS_LIBS     = ${CLIBS_linux}
 CFLAGS_DEBUG	= -g
 CFLAGS_OPT     	= #-O3 #-static
 CFLAGS_WARN     = -Wall
+CFLAGS_11       = -std=c++11
 
 OSFLAGS_SunOS_5 = -DSolaris 
 OSFLAGS_linux   = -Dlinux -rdynamic

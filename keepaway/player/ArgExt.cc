@@ -58,6 +58,10 @@ protected:
   enum Argument { H, O1, O2, F1, F2 };
   enum Label { IN, OUT, UNDEC };
 
+  // Pre-computed extensions
+  // maps applicable arguments + sit -> pref exts
+  std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+
   double alpha;
   double gamma;
   double lambda;
@@ -103,14 +107,19 @@ protected:
 public:
 
   ArgumentationAgent(
-	WorldModel& world_, int numFeatures, 
-	int numActions, bool bLearn,
-  	double widths[], char *loadWeightsFile,
-  	char *saveWeightsFile, bool hiveMind);
+          WorldModel& world_, int numFeatures, 
+          int numActions, bool bLearn,
+          double widths[], char *loadWeightsFile,
+          char *saveWeightsFile, bool hiveMind);
 
   // Support for extra modes and/or analysis.
   double getQ(int action);
   void setEpsilon(double epsilon);
+
+  // Niki-written startup code
+  template <class T>
+  std::set< std::set<T> > getAllSubsets(std::vector<T> s);
+  void precomputeAllExtensions();
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
@@ -129,12 +138,16 @@ public:
   std::set< std::set<Argument> > getPreferredExtensions(
           std::set<Argument> &args,
           std::set< std::pair<Argument, Argument> > &attacks);
+  std::set< std::set<Argument> > getDynaPrefExts(
+          std::set<Argument> &args,
+          std::set< std::pair<Argument, Argument> > &attacks);
+  int dyna(const char *fileName);
   std::set< std::set<Argument> > getPreferredExtensionsFast(
           double state[], std::set<Argument> &args);
   std::set<Argument> choosePrefExt(std::set< std::set<Argument> > &prefExts);
   int getActionFromExt(std::set<Argument> &prefExt);
   double getGFromExt(std::set<Argument> &prefExt, Situation sit);
-  
+
   // sets the "lastLocalState" vector to the current state
   void setLastLocalState( double state[] ) { 
       if (lastLocalState.size() < 13) {
@@ -214,11 +227,11 @@ public:
  */
 #pragma pack(push, 1)
 struct CollisionTableHeader {
-  long m;
-  int safe;
-  long calls;
-  long clearhits;
-  long collisions;
+    long m;
+    int safe;
+    long calls;
+    long clearhits;
+    long collisions;
 };
 #pragma pack(pop)
 #define VERBOSE_HIVE_MIND false
@@ -229,24 +242,24 @@ struct CollisionTableHeader {
  * data array.
  */
 long* loadColTabHeader(collision_table* colTab, double* weights) {
-  CollisionTableHeader* colTabHeader =
-    reinterpret_cast<CollisionTableHeader*>(weights + RL_MEMORY_SIZE);
-  // Do each field individually, since they don't all line up exactly for an
-  // easy copy.
-  colTab->calls = colTabHeader->calls;
-  colTab->clearhits = colTabHeader->clearhits;
-  colTab->collisions = colTabHeader->collisions;
-  colTab->m = colTabHeader->m;
-  colTab->safe = colTabHeader->safe;
-  if (VERBOSE_HIVE_MIND) {
-    cout << "Loaded colTabHeader:" << endl
-      << " calls: " << colTab->calls << endl
-      << " clearhits: " << colTab->clearhits << endl
-      << " collisions: " << colTab->collisions << endl
-      << " m: " << colTab->m << endl
-      << " safe: " << colTab->safe << endl;
-  }
-  return reinterpret_cast<long*>(colTabHeader + 1);
+    CollisionTableHeader* colTabHeader =
+        reinterpret_cast<CollisionTableHeader*>(weights + RL_MEMORY_SIZE);
+    // Do each field individually, since they don't all line up exactly for an
+    // easy copy.
+    colTab->calls = colTabHeader->calls;
+    colTab->clearhits = colTabHeader->clearhits;
+    colTab->collisions = colTabHeader->collisions;
+    colTab->m = colTabHeader->m;
+    colTab->safe = colTabHeader->safe;
+    if (VERBOSE_HIVE_MIND) {
+        cout << "Loaded colTabHeader:" << endl
+            << " calls: " << colTab->calls << endl
+            << " clearhits: " << colTab->clearhits << endl
+            << " collisions: " << colTab->collisions << endl
+            << " m: " << colTab->m << endl
+            << " safe: " << colTab->safe << endl;
+    }
+    return reinterpret_cast<long*>(colTabHeader + 1);
 }
 
 extern LoggerDraw LogDraw;
@@ -258,92 +271,256 @@ using namespace std;
 
 extern "C" {
 
-SMDPAgent* createAgent(
-  WorldModel& world_,
-  int numFeatures, int numActions, bool bLearn,
-  double widths[], char *loadWeightsFile,
-  char *saveWeightsFile, bool hiveMind
-) {
-  ArgumentationAgent* agent = new ArgumentationAgent(
-    world_, numFeatures, numActions, bLearn,
-    widths, loadWeightsFile,
-    saveWeightsFile, hiveMind);
-  return agent;
-}
+    SMDPAgent* createAgent(
+            WorldModel& world_,
+            int numFeatures, int numActions, bool bLearn,
+            double widths[], char *loadWeightsFile,
+            char *saveWeightsFile, bool hiveMind
+            ) {
+        ArgumentationAgent* agent = new ArgumentationAgent(
+                world_, numFeatures, numActions, bLearn,
+                widths, loadWeightsFile,
+                saveWeightsFile, hiveMind);
+        return agent;
+    }
 
 }
 
 
 namespace keepaway_demo {
 
-ArgumentationAgent::ArgumentationAgent( 
-  WorldModel& world_, int numFeatures, int numActions, bool bLearn,
-  double widths[], char *loadWeightsFile,
-  char *saveWeightsFile, bool hiveMind ):
-    SMDPAgent( numFeatures, numActions ), hiveFile(-1), world(world_)
-{
-  //srand(time(NULL)); (already set in main)
-  bLearning = bLearn;
+    ArgumentationAgent::ArgumentationAgent( 
+            WorldModel& world_, int numFeatures, int numActions, bool bLearn,
+            double widths[], char *loadWeightsFile,
+            char *saveWeightsFile, bool hiveMind ):
+        SMDPAgent( numFeatures, numActions ), hiveFile(-1), world(world_)
+    {
+        //srand(time(NULL)); (already set in main)
+        bLearning = bLearn;
 
-  for ( int i = 0; i < getNumFeatures(); i++ ) {
-    tileWidths[ i ] = widths[ i ];
-  }
+        for ( int i = 0; i < getNumFeatures(); i++ ) {
+            tileWidths[ i ] = widths[ i ];
+        }
 
-  // Saving weights (including for hive mind) requires learning and a file name.
-  this->hiveMind = false;
-  if ( bLearning && strlen( saveWeightsFile ) > 0 ) {
-    strcpy( weightsFile, saveWeightsFile );
-    bSaveWeights = true;
-    // Hive mind further requires loading and saving from the same file.
-    if (!strcmp(loadWeightsFile, saveWeightsFile)) {
-      this->hiveMind = hiveMind;
+        // Saving weights (including for hive mind) requires learning and a file name.
+        this->hiveMind = false;
+        if ( bLearning && strlen( saveWeightsFile ) > 0 ) {
+            strcpy( weightsFile, saveWeightsFile );
+            bSaveWeights = true;
+            // Hive mind further requires loading and saving from the same file.
+            if (!strcmp(loadWeightsFile, saveWeightsFile)) {
+                this->hiveMind = hiveMind;
+            }
+        }
+        else {
+            bSaveWeights = false;
+        }
+
+        alpha = 0.125;
+        gamma = 1.0;
+        lambda = 0;
+        epsilon = 0.01;
+        minimumTrace = 0.01;
+
+        epochNum = 0;
+        lastAction = -1;
+        lastLocalState = std::vector<double>(13, -1); // initialize state to nothing
+        curTable  = std::vector<double>(NUM_ACTIONS, 0);
+        nextTable = std::vector<double>(NUM_ACTIONS, 0);
+        precomputeAllExtensions(); // Niki-made; does what it says
+        std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
+        episodeCount = 0;
+
+        numNonzeroTraces = 0;
+        weights = weightsRaw;
+        for ( int i = 0; i < RL_MEMORY_SIZE; i++ ) {
+            weights[ i ] = 0;
+            traces[ i ] = 0;
+        }
+
+        srand( (unsigned int) 0 );
+        int tmp[ 2 ];
+        float tmpf[ 2 ];
+        colTab = new collision_table( RL_MEMORY_SIZE, 1 );
+
+        GetTiles( tmp, 1, 1, tmpf, 0 );  // A dummy call to set the hashing table    
+        srand( time( NULL ) );
+
+        if ( strlen( loadWeightsFile ) > 0 )
+            loadWeights( loadWeightsFile );
     }
-  }
-  else {
-    bSaveWeights = false;
-  }
-
-  alpha = 0.125;
-  gamma = 1.0;
-  lambda = 0;
-  epsilon = 0.01;
-  minimumTrace = 0.01;
-
-  epochNum = 0;
-  lastAction = -1;
-  lastLocalState = std::vector<double>(13, -1); // initialize state to nothing
-  curTable  = std::vector<double>(NUM_ACTIONS, 0);
-  nextTable = std::vector<double>(NUM_ACTIONS, 0);
-  episodeCount = 0;
-
-  numNonzeroTraces = 0;
-  weights = weightsRaw;
-  for ( int i = 0; i < RL_MEMORY_SIZE; i++ ) {
-    weights[ i ] = 0;
-    traces[ i ] = 0;
-  }
-
-  srand( (unsigned int) 0 );
-  int tmp[ 2 ];
-  float tmpf[ 2 ];
-  colTab = new collision_table( RL_MEMORY_SIZE, 1 );
-
-  GetTiles( tmp, 1, 1, tmpf, 0 );  // A dummy call to set the hashing table    
-  srand( time( NULL ) );
-
-  if ( strlen( loadWeightsFile ) > 0 )
-    loadWeights( loadWeightsFile );
-}
 
 double ArgumentationAgent::getQ(int action) {
-  if (action < 0 || action > getNumActions()) {
-    throw "invalid action";
-  }
-  return Q[action];
+    if (action < 0 || action > getNumActions()) {
+        throw "invalid action";
+    }
+    return Q[action];
 }
 
 void ArgumentationAgent::setEpsilon(double epsilon) {
-  this->epsilon = epsilon;
+    this->epsilon = epsilon;
+}
+
+void ArgumentationAgent::precomputeAllExtensions() {
+
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+
+    // All situations
+    std::vector<Situation> sits;
+    sits.push_back(Safe);
+    sits.push_back(UnderThreat);
+    sits.push_back(InDanger);
+
+    // Al args
+    std::vector<Argument> args;
+    args.push_back(H);
+    args.push_back(O1);
+    args.push_back(O2);
+    args.push_back(F1);
+    args.push_back(F2);
+
+    //std::set<Argument> s(v.begin(), v.end());
+    std::set< std::set<Argument> > allArgSets = getAllSubsets(args);
+
+    /*
+     * idea is: for each set of arguments, for each situaton, calculate and store the preferred extensions
+     */
+
+    for (Situation sit : sits) {
+        for (auto args : allArgSets) {
+
+            // Recurd the current index
+            std::pair<std::set<Argument>, Situation>
+                current(args, sit);
+
+            // Set up the arguments
+            std::set< std::pair<Argument, Argument> > attacks =
+                setAllAttacks(args, sit);
+
+            // Simplify based on situation
+            simplifyFramework(attacks, sit);
+
+            // Compute extensions (slow bit)
+            std::set< std::set<Argument> > prefExts =
+                getPreferredExtensions(args, attacks);
+
+            // Save result
+            myExts.insert({current, prefExts}); 
+        }
+    }
+}
+
+// this works
+template <class T>
+std::set< std::set<T> > ArgumentationAgent::getAllSubsets(std::vector<T> set)
+{
+    std::vector< std::vector<T> > subset;
+    std::vector<T> empty;
+    subset.push_back( empty );
+
+    for (int i = 0; i < set.size(); i++)
+    {
+        std::vector< std::vector<T> > subsetTemp = subset;
+
+        for (int j = 0; j < subsetTemp.size(); j++)
+            subsetTemp[j].push_back( set[i] );
+
+        for (int j = 0; j < subsetTemp.size(); j++)
+            subset.push_back( subsetTemp[j] );
+    }
+
+    std::set< std::set<T> > toReturn;
+    for (int i = 0; i < subset.size(); i++) {
+        std::set<T> miniToReturn;
+        for (int j = 0; j < subset[i].size(); j++) {
+            miniToReturn.insert(subset[i][j]);
+        }
+        toReturn.insert(miniToReturn);
+    }
+    return toReturn;
+    //return subset;
+}
+
+/*
+int ArgumentationAgent::dyna(const char *fileName) {
+   int pid, status;
+   // first we fork the process
+   if ((pid = fork())) {
+       // pid != 0: this is the parent process (i.e. our process)
+       waitpid(pid, &status, 0); // wait for the child to exit
+   } else {
+       / pid == 0: this is the child process. now let's load the 
+
+       / exec does not return unless the program couldn't be started. 
+          when the child process stops, the waitpid() above will return.
+       /
+       std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
+              + std::string(" -s preferred > outdyna.txt");
+
+       int n = ex.length(); 
+       char e[n + 1]; 
+       strcpy(e, ex.c_str());
+
+       system(e);
+   }
+   return status; // this is the parent process again.
+}
+*/
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getDynaPrefExts(
+        std::set<Argument> &args,
+        std::set< std::pair<Argument, Argument> > &attacks) {
+
+    clock_t start = clock();
+    // Write the framework to file
+    ofstream myfile;
+    const char *myInput = "indyna.txt";
+    myfile.open(myInput);
+
+    myfile << "\%arguments\n";
+    for (Argument arg : args) {
+        myfile << "arg(" << arg << ").\n";
+    }
+
+    myfile << "\%attacks\n";
+    for (auto attack : attacks) {
+        myfile << "att(" << attack.first << ","
+               << attack.second << ").\n";
+    }
+    myfile.close();
+    clock_t end = clock();
+    std::cout << "started writing to file at " << start << " and ended at " << end << std::endl;
+    std::cout << "writing to file took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+
+    start = clock();
+    // Call Dyna
+    dyna(myInput);
+    end = clock();
+    std::cout << "started dyna at " << start << " and ended at " << end << std::endl;
+    std::cout << "calling dyna took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+
+    start = clock();
+    // Read the output
+    char data[128];
+    ifstream infile; 
+    infile.open("outdyna.txt"); 
+     
+    std::cout << "Reading from the file" << endl; 
+    infile >> data; // get rid of "Solutions:"
+    infile >> data; // get rid of # sols
+    infile >> data;
+
+    std::cout << data << std::endl;
+    end = clock();
+    std::cout << "started reading result at " << start << " and ended at " << end << std::endl;
+    std::cout << "reading result took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    infile.close();
+
+    std::set< std::set<Argument> > prefExts;
+    std::set<Argument> prefExt;
+    prefExt.insert(H);
+    prefExts.insert(prefExt);
+    return prefExts;
 }
 
 std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) {
@@ -356,6 +533,8 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Approach 1: below is the problem-specific, fast way of doing it
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
+    // XXX
+    /*
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -365,28 +544,40 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Simplify the framework based on the situation
     simplifyFramework(attacks, sit);
 
+    //clock_t start = clock();
+    // Call the dyna calculator (actually, calling this is too slow too :( )
+    //std::set< std::set<Argument> > prefExts = 
+        //getDynaPrefExts(args, attacks);
+
+    //return shaping;
+    //clock_t end = clock();
+    //std::cout << "made it here" << std::endl;
+    //std::cout << "time: " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
+
     // Get the preferred extension from the simplified framework
     // NOTE: could use grounded extension in the future
+    // below is the original, Niki-written, but too-slow way
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
+    */
+    
+    // Approach 3: use the pre-computed values
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    // TODO: below is recommend all actions
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        shaping[supAct] += getGFromExt(prefExt, sit);
-    }
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    std::set< std::set<Argument> > prefExts = myExts[current];
 
-    // TODO: below is single recommended action
-    /*
+    // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
     int supportedAction = getActionFromExt(ext);
+    
+    std::cout << "rec action " << supportedAction << std::endl;
 
     for (int action = 0; action < NUM_ACTIONS; action++) {
         if (action == supportedAction) {
             shaping[action] += getGFromExt(ext, sit);
         }
     }
-    */
     return shaping;
 }
 
@@ -399,7 +590,7 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     //std::cout << std::endl;
     //std::cout << "action: " << action << std::endl;
 
-    //double start = clock();
+    //clock_t start = clock();
     // args will contain all applicable arguments
     std::set<Argument> args = getApplicableArguments(state);
     
@@ -695,7 +886,7 @@ std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getPrefer
         std::set<ArgumentationAgent::Argument> &args,
         std::set< std::pair<ArgumentationAgent::Argument, ArgumentationAgent::Argument> > &attacks) {
 
-    //double start = clock();
+    //clock_t start = clock();
     std::set< std::map<Argument, Label> > allLabellings;
     std::map<Argument, Label> allIN;// = { {H, IN}, {O1, IN}, {O2, IN}, {F1, IN}, {F2, IN} };
     for (Argument arg : args) {
@@ -829,7 +1020,7 @@ void ArgumentationAgent::findLabellings(std::map<Argument, Label> ass,
       std::set< std::pair<Argument, Argument> > &attacks,
       std::set< std::map<Argument, Label> > &allLabellings) {
     // line 11 of algo
-    //double start = clock();
+    //clock_t start = clock();
     for (auto tempAss : allLabellings) {
         // if ass subset of tempAss
         if (isINSubsetOf(ass, tempAss)) {
@@ -865,7 +1056,7 @@ void ArgumentationAgent::findLabellings(std::map<Argument, Label> ass,
             }
         }
     }
-    //double end = clock();
+    //clock_t end = clock();
     //std::cout << "sub check " << (subCheck - start) / CLOCKS_PER_SEC << std::endl;
     //std::cout << "rest " << (end - subCheck) / CLOCKS_PER_SEC << std::endl;
     return;
@@ -1001,7 +1192,7 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 // End of Niki-written
 int ArgumentationAgent::startEpisode( double state[] )
 {
-    double start = clock();
+    clock_t start = clock();
     //std::cout << clock() << std::endl;;
     //std::cout << "Episode Start. State: ";
     //for (int i = 0; i < 13; i++) {
@@ -1056,7 +1247,7 @@ int ArgumentationAgent::startEpisode( double state[] )
   if (DEBUGPRINT) {
       std::cout << "curr time " << world.getCurrentTime() << std::endl;
   }
-  double end = clock();
+  clock_t end = clock();
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
@@ -1082,7 +1273,7 @@ int ArgumentationAgent::step( double reward, double state[] )
     //}
     //std::cout << std::endl;
     //std::cout << getSituation(state) << std::endl;
-  double start = clock();
+  clock_t start = clock();
   // Niki-written (line 9)
   double oldPotential = 0;
   if (bLearning) {
@@ -1179,7 +1370,7 @@ int ArgumentationAgent::step( double reward, double state[] )
       //lastState[i] = state[i];
   //}
   // This is actually handled automatically by the world model
-  double end = clock();
+  clock_t end = clock();
 
   setLastLocalState( state );
   //world.setLastGlobalAction( lastAction );
@@ -1202,7 +1393,7 @@ int ArgumentationAgent::step( double reward, double state[] )
 
 void ArgumentationAgent::endEpisode( double reward )
 {
-  double start = clock();
+  clock_t start = clock();
   if (hiveMind) loadColTabHeader(colTab, weights);
   if ( bLearning && lastAction != -1 ) { /* otherwise we never ran on this episode */
     char buffer[128];
@@ -1265,7 +1456,7 @@ void ArgumentationAgent::endEpisode( double reward )
   }
   if (hiveMind) saveWeights(weightsFile);
   lastAction = -1;
-  double end = clock();
+  clock_t end = clock();
   if ((end - start)*1.0/CLOCKS_PER_SEC >= 0.09) { // actually 0.1s
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;

@@ -380,8 +380,8 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
             shaping[action] = 2;
         }
     }
-    decay = pow(0.8, episodeCount / 1000);
-    return decay*shaping;
+    //decay = pow(0.8, episodeCount / 1000);
+    return shaping;
 }
 
 double ArgumentationAgent::getPotential(double state[], int action) {
