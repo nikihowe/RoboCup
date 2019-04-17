@@ -654,21 +654,21 @@ std::set< std::set<T> > ArgumentationAgent::getAllSubsets(std::vector<T> set)
     std::vector<T> empty;
     subset.push_back( empty );
 
-    for (int i = 0; i < set.size(); i++)
+    for (size_t i = 0; i < set.size(); i++)
     {
         std::vector< std::vector<T> > subsetTemp = subset;
 
-        for (int j = 0; j < subsetTemp.size(); j++)
+        for (size_t j = 0; j < subsetTemp.size(); j++)
             subsetTemp[j].push_back( set[i] );
 
-        for (int j = 0; j < subsetTemp.size(); j++)
+        for (size_t j = 0; j < subsetTemp.size(); j++)
             subset.push_back( subsetTemp[j] );
     }
 
     std::set< std::set<T> > toReturn;
-    for (int i = 0; i < subset.size(); i++) {
+    for (size_t i = 0; i < subset.size(); i++) {
         std::set<T> miniToReturn;
-        for (int j = 0; j < subset[i].size(); j++) {
+        for (size_t j = 0; j < subset[i].size(); j++) {
             miniToReturn.insert(subset[i][j]);
         }
         toReturn.insert(miniToReturn);
@@ -914,33 +914,38 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
     Value val = getValue(arg);
+    double toRet;
     switch (sit) {
         case Safe:
             //std::cout << "Safe" << std::endl;
             switch (val) {
-                case MK: return 40;
-                case IT: return 20;
-                case TK: return 10;
+                case MK: { toRet = 40; break; }
+                case IT: { toRet = 20; break; }
+                case TK: { toRet = 10; break; }
             }
+            break;
         case UnderThreat:
             //std::cout << "Under Threat" << std::endl;
             switch (val) {
-                case MK: return 10;
-                case IT: return 20;
-                case TK: return 5;
+                case MK: { toRet = 10; break; }
+                case IT: { toRet = 20; break; }
+                case TK: { toRet = 5; break; }
             }
+            break;
         case InDanger:
             //std::cout << "In Danger" << std::endl;
             switch (val) {
-                case MK: return 0;
-                case IT: return 25;
-                case TK: return 5;
+                case MK: { toRet = 0; break; }
+                case IT: { toRet = 25; break; }
+                case TK: { toRet = 5; break; }
             }
+            break;
         default:
             assert(false);
             std::cerr << "wrong value" << std::endl;
             return -1;
     }
+    return 4 * toRet;
 }
 
 // Get all preferred extensions, with scenario-specific optimization
@@ -1132,14 +1137,15 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
 }
 
 bool ArgumentationAgent::checkOpen(double state[], int i) {
+    int minAngle = 15;
     if (i == 1) {
-        return state[21] >= 15;
+        return state[21] >= minAngle;
     } else if (i == 2) {
-        return state[22] >= 15;
+        return state[22] >= minAngle;
     } else if (i == 3) {
-        return state[23] >= 15;
+        return state[23] >= minAngle;
     } else if (i == 4) {
-        return state[24] >= 15;
+        return state[24] >= minAngle;
     } else {
         assert(false);
         std::cout << "------checking wrong keeper------" << std::endl;
@@ -1148,14 +1154,15 @@ bool ArgumentationAgent::checkOpen(double state[], int i) {
 }
 
 bool ArgumentationAgent::checkFar(double state[], int i) {
+    int farDistance = 30;
     if (i == 1) {
-        return state[17] >= 10;
+        return state[17] >= farDistance;
     } else if (i == 2) {
-        return state[18] >= 10;
+        return state[18] >= farDistance;
     } else if (i == 3) {
-        return state[19] >= 10;
+        return state[19] >= farDistance;
     } else if (i == 4) {
-        return state[20] >= 10;
+        return state[20] >= farDistance;
     } else {
         assert(false);
         std::cout << "------checking wrong keeper------" << std::endl;
