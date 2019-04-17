@@ -20,6 +20,14 @@
 #include <algorithm>
 #include <map>
 
+#include <sys/wait.h>
+#include <cstdio>
+#include <sstream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+
 #define RL_MEMORY_SIZE 1048576
 #define RL_MAX_NONZERO_TRACES 100000
 #define RL_MAX_NUM_TILINGS 6000
@@ -123,6 +131,7 @@ public:
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
+std::set< std::set<Argument> > extractIntegerWords(std::string str);
   std::vector<double> getPotentialOverActions(double state[]);
   std::set<Argument> getApplicableArguments(double state[]);
   bool checkOpen(double state[], int i);
@@ -138,10 +147,10 @@ public:
   std::set< std::set<Argument> > getPreferredExtensions(
           std::set<Argument> &args,
           std::set< std::pair<Argument, Argument> > &attacks);
-  std::set< std::set<Argument> > getDynaPrefExts(
+  std::set< std::set<Argument> > getExternalSolverPrefExts(
           std::set<Argument> &args,
           std::set< std::pair<Argument, Argument> > &attacks);
-  int dyna(const char *fileName);
+  int externalSolver(const char *fileName);
   std::set< std::set<Argument> > getPreferredExtensionsFast(
           double state[], std::set<Argument> &args);
   std::set<Argument> choosePrefExt(std::set< std::set<Argument> > &prefExts);
@@ -441,50 +450,83 @@ std::set< std::set<T> > ArgumentationAgent::getAllSubsets(std::vector<T> set)
     //return subset;
 }
 
-/*
-int ArgumentationAgent::dyna(const char *fileName) {
+
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    result += buffer.data();
+    }
+    return result;
+}
+
+int ArgumentationAgent::externalSolver(const char *fileName) {
+   int status = 0;
+   // Actually, both are fast enough :)
+   std::string ex = std::string("./libs/ArgSemSAT/ArgSemSAT -f ") + fileName
+          + std::string(" -p EE-PR -fo apx > outExternalSolver.txt");
+   //std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
+          //+ std::string(" -s preferred > outdyna.txt");
+   //./ArgSemSAT -f $inputfile -p EE-PR -fo apx
+
+   int n = ex.length(); 
+   char e[n + 1]; 
+   strcpy(e, ex.c_str());
+
+   exec(e);
+   /*
    int pid, status;
    // first we fork the process
    if ((pid = fork())) {
        // pid != 0: this is the parent process (i.e. our process)
        waitpid(pid, &status, 0); // wait for the child to exit
    } else {
-       / pid == 0: this is the child process. now let's load the 
+       // pid == 0: this is the child process. now let's load the 
 
-       / exec does not return unless the program couldn't be started. 
-          when the child process stops, the waitpid() above will return.
-       /
-       std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
-              + std::string(" -s preferred > outdyna.txt");
+       // exec does not return unless the program couldn't be started. 
+          //when the child process stops, the waitpid() above will return.
+       //
+       //std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
+              //+ std::string(" -s preferred > outdyna.txt");
+       std::string ex = std::string("./libs/ArgSemSAT/ArgSemSAT -f ") + fileName
+              + std::string(" -p EE-PR -fo apx > outdyna.txt");
+       //./ArgSemSAT -f $inputfile -p EE-PR -fo apx
 
        int n = ex.length(); 
        char e[n + 1]; 
        strcpy(e, ex.c_str());
 
-       system(e);
+       exec(e);
+       //system(e);
+       //
    }
+   */
    return status; // this is the parent process again.
 }
-*/
 
-std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getDynaPrefExts(
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getExternalSolverPrefExts(
         std::set<Argument> &args,
         std::set< std::pair<Argument, Argument> > &attacks) {
 
     clock_t start = clock();
     // Write the framework to file
     ofstream myfile;
-    const char *myInput = "indyna.txt";
+    const char *myInput = "inExternalSolver.txt";
     myfile.open(myInput);
 
-    myfile << "\%arguments\n";
+    //myfile << "\%arguments\n";
     for (Argument arg : args) {
-        myfile << "arg(" << arg << ").\n";
+        myfile << "arg(a" << arg << ").\n";
     }
 
-    myfile << "\%attacks\n";
+    //myfile << "\%attacks\n";
     for (auto attack : attacks) {
-        myfile << "att(" << attack.first << ","
+        myfile << "att(a" << attack.first << ",a"
                << attack.second << ").\n";
     }
     myfile.close();
@@ -494,33 +536,62 @@ std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getDynaPr
 
     start = clock();
     // Call Dyna
-    dyna(myInput);
+    externalSolver(myInput);
     end = clock();
-    std::cout << "started dyna at " << start << " and ended at " << end << std::endl;
-    std::cout << "calling dyna took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+    std::cout << "started externalSolver at " << start << " and ended at " << end << std::endl;
+    std::cout << "calling externalSolver took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
 
     start = clock();
     // Read the output
-    char data[128];
+    std::string data;
     ifstream infile; 
-    infile.open("outdyna.txt"); 
+    infile.open("outExternalSolver.txt"); 
      
     std::cout << "Reading from the file" << endl; 
-    infile >> data; // get rid of "Solutions:"
-    infile >> data; // get rid of # sols
-    infile >> data;
+    infile >> data; // read the file
+    infile.close();
+
+    auto prefExts = extractIntegerWords(data);
+
+    std::cout << "extracted" << std::endl;
+    std::cout << prefExts.size() << std::endl;
 
     std::cout << data << std::endl;
     end = clock();
     std::cout << "started reading result at " << start << " and ended at " << end << std::endl;
     std::cout << "reading result took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
-    infile.close();
 
-    std::set< std::set<Argument> > prefExts;
-    std::set<Argument> prefExt;
-    prefExt.insert(H);
-    prefExts.insert(prefExt);
     return prefExts;
+}
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::extractIntegerWords(std::string str) { 
+
+    std::set< std::set<Argument> > theExts;
+    std::set<Argument> theArgs;
+
+    size_t i = 0;
+    while (i++ < str.size()) {
+        char c = str[i];
+        if (c == 'a') {
+            size_t intStart = i + 1;
+            size_t intEnd1 = str.find(']', i);
+            size_t intEnd2 = str.find(',', i);
+            size_t intEnd = std::min(intEnd1, intEnd2);
+            std::string myStr = str.substr(intStart, intEnd - intStart);
+            int myInt = std::stoi(myStr);
+            Argument myArg = static_cast<Argument>(myInt);
+            theArgs.insert(myArg);
+            i = intEnd - 1;
+        } else if (c == ']') { // it's the end of the preferred extension
+            if (i == str.size()) { // it's the end of the file (== because ++)
+                continue;
+            } else { // it's just the end of the extension
+                theExts.insert(theArgs);
+                theArgs.clear();
+            }
+        }
+    }
+    return theExts;
 }
 
 std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) {
@@ -534,7 +605,6 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
     // XXX
-    /*
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -545,27 +615,29 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     simplifyFramework(attacks, sit);
 
     //clock_t start = clock();
-    // Call the dyna calculator (actually, calling this is too slow too :( )
-    //std::set< std::set<Argument> > prefExts = 
-        //getDynaPrefExts(args, attacks);
+    // Approach 2.1
+    // Call the external solver
+    std::set< std::set<Argument> > prefExts = 
+        getExternalSolverPrefExts(args, attacks);
 
     //return shaping;
     //clock_t end = clock();
     //std::cout << "made it here" << std::endl;
     //std::cout << "time: " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
 
+    // Approach 2.2
     // Get the preferred extension from the simplified framework
     // NOTE: could use grounded extension in the future
     // below is the original, Niki-written, but too-slow way
-    std::set< std::set<Argument> > prefExts =
-        getPreferredExtensions(args, attacks);
-    */
+    //std::set< std::set<Argument> > prefExts =
+        //getPreferredExtensions(args, attacks);
     
+    // XXX
     // Approach 3: use the pre-computed values
     //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    std::pair<std::set<Argument>, Situation> current(args, sit);
-    std::set< std::set<Argument> > prefExts = myExts[current];
+    //std::pair<std::set<Argument>, Situation> current(args, sit);
+    //std::set< std::set<Argument> > prefExts = myExts[current];
 
     // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
