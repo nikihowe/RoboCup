@@ -1,0 +1,4 @@
+repo: bb3140b539ce6e9b53fb4d91a614fd8f826c5138
+node: 652ccd952e835ff36a1c12542a07793e26b2f0fc
+branch: sourceforge
+tag: 1.0

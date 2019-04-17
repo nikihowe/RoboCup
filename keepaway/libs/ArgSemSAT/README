@@ -1,0 +1,24 @@
+AUTHORS:
+
+Federico Cerutti, f.cerutti@abdn.ac.uk 
+Mauro Vallati, m.vallati@hud.ac.uk
+Massimiliano Giacomin, massimiliano.giacomin@unibs.it
+Tobia Zanetti, t.zanetti001@studenti.unibs.it
+
+*****
+INSTRUCTIONS 
+*****
+
+for compiling the system:
+
+./build
+
+for running the system, see the probo interfaces. For example:
+
+./ArgSemSAT -f $inputfile -p EE-PR -fo apx
+
+---
+
+for the full list of parameters:
+
+./ArgSemSAT --help
