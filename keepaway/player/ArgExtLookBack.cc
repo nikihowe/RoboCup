@@ -445,11 +445,11 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     double toRet = 0;
     if (action == supportedAction) {
         //toRet += getGFromExt(ext, sit);
-        toRet += 2;
+        toRet = 2;
     }
-    //decay = pow(0.8, episodeCount / 1000);
-    //return decay*toRet;
-    return toRet;
+    double decay = pow(0.8, episodeCount / 1000);
+    return decay * toRet;
+    //return toRet;
 }
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
@@ -1013,7 +1013,7 @@ int ArgumentationAgent::startEpisode( double state[] )
   if (hiveMind) saveWeights(weightsFile);
 
   // These are the only things that have changed
-  setLastLocalState( state );
+  //setLastLocalState( state );
 
   double end = clock();
 
@@ -1029,7 +1029,7 @@ int ArgumentationAgent::step( double reward, double state[] )
 {
   double start = clock();
 
-  if (bLearning) {
+  //if (bLearning) {
     //std::vector<double> ls = world.getLastGlobalState();
     //assert(ls.size() == 13);
     //double *a = &ls[0];
@@ -1040,7 +1040,7 @@ int ArgumentationAgent::step( double reward, double state[] )
     //oldPotential = curTable[lastAction];
     // TODO
     //std::cout << "old potential: " << oldPotential << std::endl;
-  }
+  //}
   //std::cout << getSituation(lastState) << " " << lastAction << " -> ";
 
   if (hiveMind) loadColTabHeader(colTab, weights);
