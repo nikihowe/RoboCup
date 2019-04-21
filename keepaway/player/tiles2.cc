@@ -34,7 +34,7 @@ void GetTiles(
     int memory_size,           // total number of possible tiles
     float floats[],            // array of floating point variables
     int num_floats,            // number of floating point variables
-    int ints[],       // array of integer variables
+    int ints[],                // array of integer variables
     int num_ints)              // number of integer variables
 {
     int i,j;

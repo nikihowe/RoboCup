@@ -25,6 +25,7 @@ CFLAGS_LIBS     = ${CLIBS_linux}
 CFLAGS_DEBUG	= -g
 CFLAGS_OPT     	= #-O3 #-static
 CFLAGS_WARN     = -Wall
+CFLAGS_11       = -std=c++11
 
 OSFLAGS_SunOS_5 = -DSolaris 
 OSFLAGS_linux   = -Dlinux -rdynamic
@@ -77,7 +78,7 @@ OBJS_PLAYER	= $(SRCS_PLAYER:.cc=.o)
 
 # ==== RULES ==================================================
 
-all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so arg_ext_lookback.so arg_ext_argthensarsa.so arg_ext_shared.so arg_ext_shared2.so arg_ext_big.so arg_ext_med.so
+all::	$(TARGET) demo_extension.so arg_ext.so arg_ext_constant2.so arg_ext_lookback.so arg_ext_argthensarsa.so arg_ext_shared.so arg_ext_shared2.so arg_ext_big.so arg_ext_med.so arg_ext_big_shared.so
 
 	# ^ (niki added many things)
 
@@ -110,6 +111,9 @@ arg_ext_shared2.so: ArgSharedBackwards2.cc
 
 arg_ext_big.so: ArgExtBig.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_big.so ArgExtBig.cc
+
+arg_ext_big_shared.so: ArgExtBigShared.cc
+	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_big_shared.so ArgExtBigShared.cc
 
 arg_ext_med.so: ArgExtMed.cc
 	$(COMPILE) -fPIC -std=c++11 -shared -o arg_ext_med.so ArgExtMed.cc

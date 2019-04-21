@@ -1,0 +1,17 @@
+
+syntax: regexp
+^Debug$
+syntax: regexp
+^docs$
+syntax: regexp
+^Release/ArgSemSAT$
+syntax: glob
+*.d
+syntax: regexp
+^UnitTest/ArgSemSAT$
+syntax: regexp
+^UnitTest$
+syntax: regexp
+^UnitTestDebug$
+syntax: regexp
+^src/hgversion\.h$
