@@ -374,14 +374,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
 
-    // TODO: below is recommend all actions
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        shaping[supAct] += getGFromExt(prefExt, sit);
-    }
-
     // TODO: below is single recommended action
-    /*
     std::set<Argument> ext = choosePrefExt(prefExts);
     int supportedAction = getActionFromExt(ext);
 
@@ -390,7 +383,6 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
             shaping[action] += getGFromExt(ext, sit);
         }
     }
-    */
     return shaping;
 }
 
@@ -1002,7 +994,7 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 }
 
 double ArgumentationAgent::getLastpot() {
-    std::ifstream infile("pot.dat", std::ios::in);
+    std::ifstream infile("potFullShared.dat", std::ios::in);
     double pot;
     infile >> pot;
     return pot;
@@ -1010,7 +1002,7 @@ double ArgumentationAgent::getLastpot() {
 
 void ArgumentationAgent::setLastpot( double pot ) {
     std::ofstream outfile;
-    outfile.open("pot.dat");
+    outfile.open("potFullShared.dat");
     outfile << pot;
     outfile.close();
 }
