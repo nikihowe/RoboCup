@@ -366,12 +366,10 @@ ArgumentationAgent::ArgumentationAgent(
 
   epochNum = 0;
   lastAction = -1;
-  lastLocalState = std::vector<double>(25, -1); // initialize state to nothing
+  //lastLocalState = std::vector<double>(25, -1); // initialize state to nothing
   curTable  = std::vector<double>(NUM_ACTIONS, 0);
   nextTable = std::vector<double>(NUM_ACTIONS, 0);
   std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
-  loadExtensions();
-  std::cout << myExts.size() << std::endl;
   //if (world_.getPlayerNumber() == 0) {
       //precomputeAllExtensions(); // Niki-made; does what it says
       //std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
@@ -427,11 +425,9 @@ void ArgumentationAgent::precomputeAllExtensions() {
     args.push_back(O1);
     args.push_back(O2);
     args.push_back(O3);
-    args.push_back(O4);
     args.push_back(F1);
     args.push_back(F2);
     args.push_back(F3);
-    args.push_back(F4);
 
     printVec(sits, sits.size());
     printVec(args, args.size());
@@ -557,7 +553,7 @@ std::set<ArgumentationAgent::Argument> ArgumentationAgent::getArgs(std::string s
     std::istringstream iss(str);
     std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
 
-//enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
+//enum Argument { H, O1, O2, O3, F1, F2, F3 };
     std::set<Argument> args;
     for (auto s : tokens) {
         if (s == "0") {
@@ -569,15 +565,11 @@ std::set<ArgumentationAgent::Argument> ArgumentationAgent::getArgs(std::string s
         } else if (s == "3") {
             args.insert(O3);
         } else if (s == "4") {
-            args.insert(O4);
-        } else if (s == "5") {
             args.insert(F1);
-        } else if (s == "6") {
+        } else if (s == "5") {
             args.insert(F2);
-        } else if (s == "7") {
+        } else if (s == "6") {
             args.insert(F3);
-        } else if (s == "8") {
-            args.insert(F4);
         } else {
             std::cerr << "whyyy" << std::endl;
             assert(false);
@@ -624,7 +616,7 @@ int ArgumentationAgent::externalSolver(const char *fileName) {
    int status = 0;
    // Actually, both are fast enough :)
    std::string ex = std::string("./libs/ArgSemSAT/ArgSemSAT -f ") + fileName
-          + std::string(" -p EE-PR -fo apx > outExternalSolver.txt");
+          + std::string(" -p EE-PR -fo apx > outExternalSolverMed.txt");
    //std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
           //+ std::string(" -s preferred > outdyna.txt");
    //./ArgSemSAT -f $inputfile -p EE-PR -fo apx
@@ -703,8 +695,10 @@ std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getExtern
     ifstream infile; 
     infile.open("outExternalSolverMed.txt"); 
      
-    std::cout << "Reading from the file" << endl; 
+    std::cout << "Reading from the file" << std::endl; 
     infile >> data; // read the file
+    std::cout << "The file contains" << std::endl;
+    std::cout << data << std::endl;
     infile.close();
 
     auto prefExts = extractIntegerWords(data);
@@ -718,36 +712,6 @@ std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getExtern
     std::cout << "reading result took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
 
     return prefExts;
-}
-
-std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::extractIntegerWords(std::string str) { 
-
-    std::set< std::set<Argument> > theExts;
-    std::set<Argument> theArgs;
-
-    size_t i = 0;
-    while (i++ < str.size()) {
-        char c = str[i];
-        if (c == 'a') {
-            size_t intStart = i + 1;
-            size_t intEnd1 = str.find(']', i);
-            size_t intEnd2 = str.find(',', i);
-            size_t intEnd = std::min(intEnd1, intEnd2);
-            std::string myStr = str.substr(intStart, intEnd - intStart);
-            int myInt = std::stoi(myStr);
-            Argument myArg = static_cast<Argument>(myInt);
-            theArgs.insert(myArg);
-            i = intEnd - 1;
-        } else if (c == ']') { // it's the end of the preferred extension
-            if (i == str.size()) { // it's the end of the file (== because ++)
-                continue;
-            } else { // it's just the end of the extension
-                theExts.insert(theArgs);
-                theArgs.clear();
-            }
-        }
-    }
-    return theExts;
 }
 
 std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::extractIntegerWords(std::string str) { 
@@ -802,6 +766,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     
     // Approach 2.1
     // Call the external solver
+    clock_t start = clock();
     std::set< std::set<Argument> > prefExts = 
         getExternalSolverPrefExts(args, attacks);
 
@@ -809,16 +774,15 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Get the preferred extension from the simplified framework
     // NOTE: could use grounded extension in the future
     //std::set< std::set<Argument> > prefExts =
-        getPreferredExtensions(args, attacks);
+        //getPreferredExtensions(args, attacks);
 
     // Approach 3: use the pre-computed values
     //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    //clock_t start = clock();
     //std::pair<std::set<Argument>, Situation> current(args, sit);
     //std::set< std::set<Argument> > prefExts = myExts[current];
-    //clock_t end = clock();
 
+    clock_t end = clock();
     std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
 
     // below is single recommended action
@@ -940,7 +904,7 @@ double ArgumentationAgent::getPotential(double state[], int action) {
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
     std::set<Argument> args;
-    //enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
+    //enum Argument { H, O1, O2, O3, F1, F2, F3 };
     args.insert(H); // H is always supported
 
     if (checkOpen(state, 1)) {
