@@ -336,8 +336,8 @@ namespace keepaway_demo {
         lastLocalState = std::vector<double>(13, -1); // initialize state to nothing
         curTable  = std::vector<double>(NUM_ACTIONS, 0);
         nextTable = std::vector<double>(NUM_ACTIONS, 0);
-        precomputeAllExtensions(); // Niki-made; does what it says
-        std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
+        //precomputeAllExtensions(); // Niki-made; does what it says
+        //std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
         episodeCount = 0;
 
         numNonzeroTraces = 0;
@@ -605,6 +605,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
     // XXX
+    
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -620,6 +621,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     std::set< std::set<Argument> > prefExts = 
         getExternalSolverPrefExts(args, attacks);
 
+    /*
     //return shaping;
     //clock_t end = clock();
     //std::cout << "made it here" << std::endl;
@@ -632,9 +634,10 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     //std::set< std::set<Argument> > prefExts =
         //getPreferredExtensions(args, attacks);
     
+    */
     // XXX
     // Approach 3: use the pre-computed values
-    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts; <- don't uncomment; this is a member variable
 
     //std::pair<std::set<Argument>, Situation> current(args, sit);
     //std::set< std::set<Argument> > prefExts = myExts[current];
