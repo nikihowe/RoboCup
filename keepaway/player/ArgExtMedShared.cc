@@ -19,6 +19,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <map>
+#include <fstream>
+#include <iterator>
 
 #define RL_MEMORY_SIZE 1048576
 #define RL_MAX_NONZERO_TRACES 100000
@@ -62,7 +64,7 @@ protected:
   int epochNum;
   int lastAction;
   // Niki-added
-  //std::vector<double> lastLocalState;
+  std::vector<double> lastLocalState;
   std::vector<double> curTable;
   std::vector<double> nextTable;
 
@@ -75,6 +77,11 @@ protected:
   enum Value { MK, IT, TK };
   enum Argument { H, O1, O2, O3, F1, F2, F3 };
   enum Label { IN, OUT, UNDEC };
+  
+  // Pre-computed extensions
+  // maps applicable arguments + sit -> pref exts
+  // for use when using pre-computed extensions
+  std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
   double alpha;
   double gamma;
@@ -129,9 +136,33 @@ public:
   // Support for extra modes and/or analysis.
   double getQ(int action);
   void setEpsilon(double epsilon);
+  
+  // Niki-written startup code
+  template <class T>
+  std::set< std::set<T> > getAllSubsets(std::vector<T> s);
+  void precomputeAllExtensions();
+
+  // Niki-written for sharing potential info
+  double getLastpot();
+  void setLastpot(double pot);
+
+
+void loadExtensions();
+void loadSingleExt( std::ifstream &in );
+std::set<Argument> getArgs(std::string line);
+Situation getSit(std::string line);
+
+template <class T>
+void printVec( std::vector<T> a, int size ) {
+  for (int i = 0; i < size; i++) {
+      std::cout << a[i] << " ";
+  }
+  std::cout << std::endl;
+}
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
+  std::set< std::set<Argument> > extractIntegerWords(std::string str);
   std::vector<double> getPotentialOverActions(double state[]);
   std::set<Argument> getApplicableArguments(double state[]);
   bool checkOpen(double state[], int i);
@@ -147,6 +178,10 @@ public:
   std::set< std::set<Argument> > getPreferredExtensions(
           std::set<Argument> &args,
           std::set< std::pair<Argument, Argument> > &attacks);
+  std::set< std::set<Argument> > getExternalSolverPrefExts(
+          std::set<Argument> &args,
+          std::set< std::pair<Argument, Argument> > &attacks);
+  int externalSolver(const char *fileName);
   std::set< std::set<Argument> > getPreferredExtensionsFast(
           double state[], std::set<Argument> &args);
   std::set<Argument> choosePrefExt(std::set< std::set<Argument> > &prefExts);
@@ -331,9 +366,18 @@ ArgumentationAgent::ArgumentationAgent(
 
   epochNum = 0;
   lastAction = -1;
-  //lastLocalState = std::vector<double>(25, -1); // initialize state to nothing
+  lastLocalState = std::vector<double>(25, -1); // initialize state to nothing
   curTable  = std::vector<double>(NUM_ACTIONS, 0);
   nextTable = std::vector<double>(NUM_ACTIONS, 0);
+  std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
+  loadExtensions();
+  std::cout << myExts.size() << std::endl;
+  //if (world_.getPlayerNumber() == 0) {
+      //precomputeAllExtensions(); // Niki-made; does what it says
+      //std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
+  //} else {
+    //sleep(200);
+  //}
   episodeCount = 0;
 
   numNonzeroTraces = 0;
@@ -353,8 +397,7 @@ ArgumentationAgent::ArgumentationAgent(
 
   if ( strlen( loadWeightsFile ) > 0 )
     loadWeights( loadWeightsFile );
-
-  std::cout << "successful agent construction" << std::endl;
+  std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
 }
 
 double ArgumentationAgent::getQ(int action) {
@@ -368,6 +411,375 @@ void ArgumentationAgent::setEpsilon(double epsilon) {
   this->epsilon = epsilon;
 }
 
+void ArgumentationAgent::precomputeAllExtensions() {
+
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+
+    // All situations
+    std::vector<Situation> sits;
+    sits.push_back(Safe);
+    sits.push_back(UnderThreat);
+    sits.push_back(InDanger);
+
+    // Al args
+    std::vector<Argument> args;
+    args.push_back(H);
+    args.push_back(O1);
+    args.push_back(O2);
+    args.push_back(O3);
+    args.push_back(O4);
+    args.push_back(F1);
+    args.push_back(F2);
+    args.push_back(F3);
+    args.push_back(F4);
+
+    printVec(sits, sits.size());
+    printVec(args, args.size());
+
+    //std::set<Argument> s(v.begin(), v.end());
+    std::set< std::set<Argument> > allArgSets = getAllSubsets(args);
+
+    /*
+     * idea is: for each set of arguments, for each situaton, calculate and store the preferred extensions
+     */
+
+    for (Situation sit : sits) {
+        for (auto args : allArgSets) {
+
+            // Recurd the current index
+            std::pair<std::set<Argument>, Situation>
+                current(args, sit);
+
+            // Set up the arguments
+            std::set< std::pair<Argument, Argument> > attacks =
+                setAllAttacks(args, sit);
+
+            // Simplify based on situation
+            simplifyFramework(attacks, sit);
+
+            // Compute extensions (slow bit)
+            std::set< std::set<Argument> > prefExts =
+                getPreferredExtensions(args, attacks);
+
+            // Save result
+            //myExts.insert({current, prefExts}); 
+
+            std::cout << "args" << std::endl;
+            for (auto arg : args) {
+                std::cout << arg << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "sit" << std::endl;
+            std::cout << sit << std::endl;
+            std::cout << "exts" << std::endl;
+            for (auto ext : prefExts) {
+                for (auto arg : ext) {
+                    std::cout << arg << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+                
+        }
+    }
+}
+
+//std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
+void ArgumentationAgent::loadExtensions() {
+    const char *name = "exts5v4.txt";
+
+    std::ifstream in(name);
+
+    if(!in) {
+        std::cout << "Cannot open input file." << std::endl;
+        return;
+    }
+
+    while (in.is_open()) {
+        loadSingleExt(in);
+        //std::cout << myExts.size() << std::endl;
+    }
+    std::cout << "done" << std::endl;
+}
+
+void ArgumentationAgent::loadSingleExt( std::ifstream &in ) {
+
+    // We'll return these
+    std::set<Argument> args;
+    Situation sit;
+    std::set< std::set<Argument> > exts;
+
+    // For parsing
+    std::string str;
+
+    // Get the arguments
+    while (getline(in, str)) { // whitespace and "args"
+        //std::cout << "str is " << str << std::endl;
+        if (str == "args") {
+            break;
+        } else if (str == "*") {
+            in.close();
+            return;
+        }
+    }
+    std::cout << str << std::endl;
+    std::getline(in, str); // the arguments
+    std::cout << str << std::endl;
+    if (!str.empty()) {
+        args = getArgs(str);
+    }
+
+    // Get the situation
+    std::getline(in, str); // "sit"
+    std::cout << str << std::endl;
+    std::getline(in, str); // the situation
+    std::cout << str << std::endl;
+    sit = getSit(str);
+
+    // Get the extensions
+    std::getline(in, str); // "exts"
+    std::cout << str << std::endl;
+    // the extensions (many lines)
+    while (std::getline(in, str) && !str.empty() && str != "*") {
+        std::set<Argument> ext = getArgs(str);
+        std::cout << str << std::endl;
+        exts.insert(ext);
+    }
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    myExts.insert({current, exts}); 
+    if (str == "*") {
+        in.close();
+        return;
+    }
+}
+
+std::set<ArgumentationAgent::Argument> ArgumentationAgent::getArgs(std::string str) {
+    std::istringstream iss(str);
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
+
+//enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
+    std::set<Argument> args;
+    for (auto s : tokens) {
+        if (s == "0") {
+            args.insert(H);
+        } else if (s == "1") {
+            args.insert(O1);
+        } else if (s == "2") {
+            args.insert(O2);
+        } else if (s == "3") {
+            args.insert(O3);
+        } else if (s == "4") {
+            args.insert(O4);
+        } else if (s == "5") {
+            args.insert(F1);
+        } else if (s == "6") {
+            args.insert(F2);
+        } else if (s == "7") {
+            args.insert(F3);
+        } else if (s == "8") {
+            args.insert(F4);
+        } else {
+            std::cerr << "whyyy" << std::endl;
+            assert(false);
+        }
+    }
+    return args;
+}
+
+ArgumentationAgent::Situation ArgumentationAgent::getSit(std::string str) {
+
+    std::istringstream iss(str);
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
+
+    Situation sit;
+//enum Situation { Safe, UnderThreat, InDanger };
+    if (str == "0") {
+        sit = Safe;
+    } else if (str == "1") {
+        sit = UnderThreat;
+    } else if (str == "2") {
+        sit = InDanger;
+    } else {
+        std::cerr << "whyyy" << std::endl;
+        std::cout << str << std::endl;
+        assert(false);
+    }
+    return sit;
+}
+
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    result += buffer.data();
+    }
+    return result;
+}
+
+int ArgumentationAgent::externalSolver(const char *fileName) {
+   int status = 0;
+   // Actually, both are fast enough :)
+   std::string ex = std::string("./libs/ArgSemSAT/ArgSemSAT -f ") + fileName
+          + std::string(" -p EE-PR -fo apx > outExternalSolver.txt");
+   //std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
+          //+ std::string(" -s preferred > outdyna.txt");
+   //./ArgSemSAT -f $inputfile -p EE-PR -fo apx
+
+   int n = ex.length(); 
+   char e[n + 1]; 
+   strcpy(e, ex.c_str());
+
+   exec(e);
+   /*
+   int pid, status;
+   // first we fork the process
+   if ((pid = fork())) {
+       // pid != 0: this is the parent process (i.e. our process)
+       waitpid(pid, &status, 0); // wait for the child to exit
+   } else {
+       // pid == 0: this is the child process. now let's load the 
+
+       // exec does not return unless the program couldn't be started. 
+          //when the child process stops, the waitpid() above will return.
+       //
+       //std::string ex = std::string("./libs/dynpartix64 -f ") + fileName
+              //+ std::string(" -s preferred > outdyna.txt");
+       std::string ex = std::string("./libs/ArgSemSAT/ArgSemSAT -f ") + fileName
+              + std::string(" -p EE-PR -fo apx > outdyna.txt");
+       //./ArgSemSAT -f $inputfile -p EE-PR -fo apx
+
+       int n = ex.length(); 
+       char e[n + 1]; 
+       strcpy(e, ex.c_str());
+
+       exec(e);
+       //system(e);
+       //
+   }
+   */
+   return status; // this is the parent process again.
+}
+
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::getExternalSolverPrefExts(
+        std::set<Argument> &args,
+        std::set< std::pair<Argument, Argument> > &attacks) {
+
+    clock_t start = clock();
+    // Write the framework to file
+    ofstream myfile;
+    const char *myInput = "inExternalSolverMed.txt";
+    myfile.open(myInput);
+
+    //myfile << "\%arguments\n";
+    for (Argument arg : args) {
+        myfile << "arg(a" << arg << ").\n";
+    }
+
+    //myfile << "\%attacks\n";
+    for (auto attack : attacks) {
+        myfile << "att(a" << attack.first << ",a"
+               << attack.second << ").\n";
+    }
+    myfile.close();
+    clock_t end = clock();
+    std::cout << "started writing to file at " << start << " and ended at " << end << std::endl;
+    std::cout << "writing to file took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+
+    start = clock();
+    // Call Dyna
+    externalSolver(myInput);
+    end = clock();
+    std::cout << "started externalSolver at " << start << " and ended at " << end << std::endl;
+    std::cout << "calling externalSolver took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+
+    start = clock();
+    // Read the output
+    std::string data;
+    ifstream infile; 
+    infile.open("outExternalSolverMed.txt"); 
+     
+    std::cout << "Reading from the file" << endl; 
+    infile >> data; // read the file
+    infile.close();
+
+    auto prefExts = extractIntegerWords(data);
+
+    std::cout << "extracted" << std::endl;
+    std::cout << prefExts.size() << std::endl;
+
+    std::cout << data << std::endl;
+    end = clock();
+    std::cout << "started reading result at " << start << " and ended at " << end << std::endl;
+    std::cout << "reading result took " << (end - start) * 1.0 / CLOCKS_PER_SEC << std::endl;
+
+    return prefExts;
+}
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::extractIntegerWords(std::string str) { 
+
+    std::set< std::set<Argument> > theExts;
+    std::set<Argument> theArgs;
+
+    size_t i = 0;
+    while (i++ < str.size()) {
+        char c = str[i];
+        if (c == 'a') {
+            size_t intStart = i + 1;
+            size_t intEnd1 = str.find(']', i);
+            size_t intEnd2 = str.find(',', i);
+            size_t intEnd = std::min(intEnd1, intEnd2);
+            std::string myStr = str.substr(intStart, intEnd - intStart);
+            int myInt = std::stoi(myStr);
+            Argument myArg = static_cast<Argument>(myInt);
+            theArgs.insert(myArg);
+            i = intEnd - 1;
+        } else if (c == ']') { // it's the end of the preferred extension
+            if (i == str.size()) { // it's the end of the file (== because ++)
+                continue;
+            } else { // it's just the end of the extension
+                theExts.insert(theArgs);
+                theArgs.clear();
+            }
+        }
+    }
+    return theExts;
+}
+
+std::set< std::set<ArgumentationAgent::Argument> > ArgumentationAgent::extractIntegerWords(std::string str) { 
+
+    std::set< std::set<Argument> > theExts;
+    std::set<Argument> theArgs;
+
+    size_t i = 0;
+    while (i++ < str.size()) {
+        char c = str[i];
+        if (c == 'a') {
+            size_t intStart = i + 1;
+            size_t intEnd1 = str.find(']', i);
+            size_t intEnd2 = str.find(',', i);
+            size_t intEnd = std::min(intEnd1, intEnd2);
+            std::string myStr = str.substr(intStart, intEnd - intStart);
+            int myInt = std::stoi(myStr);
+            Argument myArg = static_cast<Argument>(myInt);
+            theArgs.insert(myArg);
+            i = intEnd - 1;
+        } else if (c == ']') { // it's the end of the preferred extension
+            if (i == str.size()) { // it's the end of the file (== because ++)
+                continue;
+            } else { // it's just the end of the extension
+                theExts.insert(theArgs);
+                theArgs.clear();
+            }
+        }
+    }
+    return theExts;
+}
+
 std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) {
 
     std::vector<double> shaping(NUM_ACTIONS, 0);
@@ -378,6 +790,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Approach 1: below is the problem-specific, fast way of doing it
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
+    // XXX
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -386,20 +799,29 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
 
     // Simplify the framework based on the situation
     simplifyFramework(attacks, sit);
+    
+    // Approach 2.1
+    // Call the external solver
+    std::set< std::set<Argument> > prefExts = 
+        getExternalSolverPrefExts(args, attacks);
 
+    // Approach 2.2
     // Get the preferred extension from the simplified framework
     // NOTE: could use grounded extension in the future
-    std::set< std::set<Argument> > prefExts =
+    //std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
 
-    // TODO: below is recommend all actions
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        shaping[supAct] += getGFromExt(prefExt, sit);
-    }
+    // Approach 3: use the pre-computed values
+    //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    // TODO: below is single recommended action
-    /*
+    //clock_t start = clock();
+    //std::pair<std::set<Argument>, Situation> current(args, sit);
+    //std::set< std::set<Argument> > prefExts = myExts[current];
+    //clock_t end = clock();
+
+    std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
+
+    // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
     int supportedAction = getActionFromExt(ext);
 
@@ -408,8 +830,38 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
             shaping[action] += getGFromExt(ext, sit);
         }
     }
-    */
     return shaping;
+}
+
+// this works
+template <class T>
+std::set< std::set<T> > ArgumentationAgent::getAllSubsets(std::vector<T> set)
+{
+    std::vector< std::vector<T> > subset;
+    std::vector<T> empty;
+    subset.push_back( empty );
+
+    for (size_t i = 0; i < set.size(); i++)
+    {
+        std::vector< std::vector<T> > subsetTemp = subset;
+
+        for (size_t j = 0; j < subsetTemp.size(); j++)
+            subsetTemp[j].push_back( set[i] );
+
+        for (size_t j = 0; j < subsetTemp.size(); j++)
+            subset.push_back( subsetTemp[j] );
+    }
+
+    std::set< std::set<T> > toReturn;
+    for (size_t i = 0; i < subset.size(); i++) {
+        std::set<T> miniToReturn;
+        for (size_t j = 0; j < subset[i].size(); j++) {
+            miniToReturn.insert(subset[i][j]);
+        }
+        toReturn.insert(miniToReturn);
+    }
+    return toReturn;
+    //return subset;
 }
 
 double ArgumentationAgent::getPotential(double state[], int action) {
@@ -488,7 +940,7 @@ double ArgumentationAgent::getPotential(double state[], int action) {
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
     std::set<Argument> args;
-    //enum Argument { H, O1, O2, O3, F1, F2, F3 };
+    //enum Argument { H, O1, O2, O3, O4, F1, F2, F3, F4 };
     args.insert(H); // H is always supported
 
     if (checkOpen(state, 1)) {
@@ -629,33 +1081,47 @@ ArgumentationAgent::Value ArgumentationAgent::getValue(ArgumentationAgent::Argum
 double ArgumentationAgent::getRelevantPot(
         ArgumentationAgent::Argument arg, ArgumentationAgent::Situation sit) {
     Value val = getValue(arg);
+    double toRet;
     switch (sit) {
         case Safe:
             //std::cout << "Safe" << std::endl;
             switch (val) {
-                case MK: return 40;
-                case IT: return 20;
-                case TK: return 10;
+                case MK: toRet = 40;
+                         break;
+                case IT: toRet = 20;
+                         break;
+                case TK: toRet = 10;
+                         break;
             }
+            break;
         case UnderThreat:
             //std::cout << "Under Threat" << std::endl;
             switch (val) {
-                case MK: return 10;
-                case IT: return 20;
-                case TK: return 5;
+                case MK: toRet = 10;
+                         break;
+                case IT: toRet = 20;
+                         break;
+                case TK: toRet = 5;
+                         break;
             }
+            break;
         case InDanger:
             //std::cout << "In Danger" << std::endl;
             switch (val) {
-                case MK: return 0;
-                case IT: return 25;
-                case TK: return 5;
+                case MK: toRet = 0;
+                         break;
+                case IT: toRet = 25;
+                         break;
+                case TK: toRet = 5;
+                         break;
             }
+            break;
         default:
             assert(false);
             std::cerr << "wrong value" << std::endl;
             return -1;
     }
+    return 4 * toRet;
 }
 
 // Get all preferred extensions, with scenario-specific optimization
@@ -1046,6 +1512,19 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
     return ass;
 }
 
+double ArgumentationAgent::getLastpot() {
+    std::ifstream infile("pot.dat", std::ios::in);
+    double pot;
+    infile >> pot;
+    return pot;
+}
+
+void ArgumentationAgent::setLastpot( double pot ) {
+    std::ofstream outfile;
+    outfile.open("pot.dat");
+    outfile << pot;
+    outfile.close();
+}
 
 // End of Niki-written
 int ArgumentationAgent::startEpisode( double state[] )
@@ -1110,6 +1589,7 @@ int ArgumentationAgent::startEpisode( double state[] )
     std::cerr << "too slow" << std::endl;
     std::cerr << "---------------------------------------------------------------" << std::endl;
   } 
+  setLastpot(curTable[lastAction]); // set to the pot of this action
   return lastAction;
 }
 
@@ -1142,7 +1622,8 @@ int ArgumentationAgent::step( double reward, double state[] )
     //oldPotential = getPotential(a, world.getLastGlobalAction());
     // TODO
     //oldPotential = getPotential(a, lastAction);
-    oldPotential = curTable[lastAction];
+    //oldPotential = curTable[lastAction];
+    oldPotential = getLastpot(); // this is from the file
     // TODO
     //std::cout << "old potential: " << oldPotential << std::endl;
   }
@@ -1245,6 +1726,7 @@ int ArgumentationAgent::step( double reward, double state[] )
   //TODO
   curTable = nextTable; 
   //TODO
+  setLastpot(newPotential); // update the potential
   return lastAction;
 }
 
@@ -1293,7 +1775,8 @@ void ArgumentationAgent::endEpisode( double reward )
     //double oldPotential = getPotential(a, world.getLastGlobalAction());
     // TODO
     //double oldPotential = getPotential(a, lastAction); // 
-    double oldPotential = curTable[lastAction];
+    //double oldPotential = curTable[lastAction];
+    double oldPotential = getLastpot(); // from the file
     // TODO
     //std::cout << "old potential: " << std::endl;
     delta -= oldPotential; // newPotential==0
