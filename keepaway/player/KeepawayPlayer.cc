@@ -406,7 +406,7 @@ SoccerCommand KeepawayPlayer::keeperWithBall()
     }
     else { // if we don't have enough info to calculate state vars
         action = 0;  // hold ball 
-        std::cout << "------------------couldn't calculate action------------------" << std::endl;
+        //std::cout << "------------------couldn't calculate action------------------" << std::endl;
         LogDraw.logText( "state", VecPosition( 35, 25 ),
                 "clueless",
                 1, COLOR_RED );

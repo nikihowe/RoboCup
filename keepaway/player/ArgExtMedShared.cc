@@ -22,6 +22,14 @@
 #include <fstream>
 #include <iterator>
 
+#include <sys/wait.h>
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+
 #define RL_MEMORY_SIZE 1048576
 #define RL_MAX_NONZERO_TRACES 100000
 #define RL_MAX_NUM_TILINGS 6000
@@ -147,18 +155,18 @@ public:
   void setLastpot(double pot);
 
 
-void loadExtensions();
-void loadSingleExt( std::ifstream &in );
-std::set<Argument> getArgs(std::string line);
-Situation getSit(std::string line);
+  void loadExtensions();
+  void loadSingleExt( std::ifstream &in );
+  std::set<Argument> getArgs(std::string line);
+  Situation getSit(std::string line);
 
-template <class T>
-void printVec( std::vector<T> a, int size ) {
-  for (int i = 0; i < size; i++) {
+  template <class T>
+  void printVec( std::vector<T> a, int size ) {
+    for (int i = 0; i < size; i++) {
       std::cout << a[i] << " ";
-  }
+    }
   std::cout << std::endl;
-}
+  }
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
@@ -370,12 +378,8 @@ ArgumentationAgent::ArgumentationAgent(
   curTable  = std::vector<double>(NUM_ACTIONS, 0);
   nextTable = std::vector<double>(NUM_ACTIONS, 0);
   std::cout << "I am player " << world_.getPlayerNumber() << std::endl;
-  //if (world_.getPlayerNumber() == 0) {
-      //precomputeAllExtensions(); // Niki-made; does what it says
-      //std::cout << "YOOhoo, we have " << myExts.size() << " extensions" << std::endl;
-  //} else {
-    //sleep(200);
-  //}
+  loadExtensions();
+  std::cout << "loaded " << myExts.size() << " extensions" << std::endl;
   episodeCount = 0;
 
   numNonzeroTraces = 0;
@@ -482,7 +486,7 @@ void ArgumentationAgent::precomputeAllExtensions() {
 
 //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 void ArgumentationAgent::loadExtensions() {
-    const char *name = "exts5v4.txt";
+    const char *name = "exts4v3.txt";
 
     std::ifstream in(name);
 
@@ -766,9 +770,9 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     
     // Approach 2.1
     // Call the external solver
-    clock_t start = clock();
-    std::set< std::set<Argument> > prefExts = 
-        getExternalSolverPrefExts(args, attacks);
+    //clock_t start = clock();
+    //std::set< std::set<Argument> > prefExts = 
+        //getExternalSolverPrefExts(args, attacks);
 
     // Approach 2.2
     // Get the preferred extension from the simplified framework
@@ -779,11 +783,11 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Approach 3: use the pre-computed values
     //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    //std::pair<std::set<Argument>, Situation> current(args, sit);
-    //std::set< std::set<Argument> > prefExts = myExts[current];
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    std::set< std::set<Argument> > prefExts = myExts[current];
 
-    clock_t end = clock();
-    std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
+    //clock_t end = clock();
+    //std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
 
     // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
@@ -792,9 +796,10 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     for (int action = 0; action < NUM_ACTIONS; action++) {
         if (action == supportedAction) {
             shaping[action] += getGFromExt(ext, sit);
+            // ^^ multiply by a factor of how much bigger the field is
         }
     }
-    return shaping;
+    return shaping; 
 }
 
 // this works
@@ -1085,7 +1090,7 @@ double ArgumentationAgent::getRelevantPot(
             std::cerr << "wrong value" << std::endl;
             return -1;
     }
-    return 4 * toRet;
+    return toRet;
 }
 
 // Get all preferred extensions, with scenario-specific optimization
@@ -1477,7 +1482,7 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 }
 
 double ArgumentationAgent::getLastpot() {
-    std::ifstream infile("pot.dat", std::ios::in);
+    std::ifstream infile("potMed.dat", std::ios::in);
     double pot;
     infile >> pot;
     return pot;
@@ -1485,7 +1490,7 @@ double ArgumentationAgent::getLastpot() {
 
 void ArgumentationAgent::setLastpot( double pot ) {
     std::ofstream outfile;
-    outfile.open("pot.dat");
+    outfile.open("potMed.dat");
     outfile << pot;
     outfile.close();
 }

@@ -149,19 +149,18 @@ public:
   std::set< std::set<T> > getAllSubsets(std::vector<T> s);
   void precomputeAllExtensions();
 
+  void loadExtensions();
+  void loadSingleExt( std::ifstream &in );
+  std::set<Argument> getArgs(std::string line);
+  Situation getSit(std::string line);
 
-void loadExtensions();
-void loadSingleExt( std::ifstream &in );
-std::set<Argument> getArgs(std::string line);
-Situation getSit(std::string line);
-
-template <class T>
-void printVec( std::vector<T> a, int size ) {
-  for (int i = 0; i < size; i++) {
+  template <class T>
+  void printVec( std::vector<T> a, int size ) {
+    for (int i = 0; i < size; i++) {
       std::cout << a[i] << " ";
-  }
+    }
   std::cout << std::endl;
-}
+  }
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
@@ -706,7 +705,7 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
 
     // XXX
-    
+    /*
     // Approach 2: this is the slower, but generalizable, way of doing it
     // For now, everything supporting different actions
     // attacks everything else
@@ -718,19 +717,22 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
 
     // Get the preferred extension from the simplified framework
     // NOTE: could use grounded extension in the future
+    // choose between 1
     //std::set< std::set<Argument> > prefExts =
         //getPreferredExtensions(args, attacks);
     
+    // or 2
+    // This is faster than doing it our way
     std::set< std::set<Argument> > prefExts = 
         getExternalSolverPrefExts(args, attacks);
-
+    */
     // XXX
     // Approach 3: use the pre-computed values
     //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
     //clock_t start = clock();
-    //std::pair<std::set<Argument>, Situation> current(args, sit);
-    //std::set< std::set<Argument> > prefExts = myExts[current];
+    std::pair<std::set<Argument>, Situation> current(args, sit);
+    std::set< std::set<Argument> > prefExts = myExts[current];
     //clock_t end = clock();
 
     //std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;

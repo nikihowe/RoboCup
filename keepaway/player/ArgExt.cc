@@ -131,7 +131,7 @@ public:
 
   // Niki-written reward shaping
   double getPotential(double state[], int action);
-std::set< std::set<Argument> > extractIntegerWords(std::string str);
+  std::set< std::set<Argument> > extractIntegerWords(std::string str);
   std::vector<double> getPotentialOverActions(double state[]);
   std::set<Argument> getApplicableArguments(double state[]);
   bool checkOpen(double state[], int i);

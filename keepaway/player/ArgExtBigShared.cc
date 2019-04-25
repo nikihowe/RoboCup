@@ -631,12 +631,12 @@ std::vector<double> ArgumentationAgent::getPotentialOverActions(double state[]) 
     // Approach 3: use the pre-computed values
     //std::map<std::pair<std::set<Argument>, Situation>, std::set< std::set<Argument> > > myExts;
 
-    clock_t start = clock();
+    //clock_t start = clock();
     std::pair<std::set<Argument>, Situation> current(args, sit);
     std::set< std::set<Argument> > prefExts = myExts[current];
-    clock_t end = clock();
+    //clock_t end = clock();
 
-    std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
+    //std::cout << "time to retreive " << (end - start)*1.0/CLOCKS_PER_SEC << std::endl;
 
     // below is single recommended action
     std::set<Argument> ext = choosePrefExt(prefExts);
@@ -1356,7 +1356,7 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 }
 
 double ArgumentationAgent::getLastpot() {
-    std::ifstream infile("pot.dat", std::ios::in);
+    std::ifstream infile("bigSharedpot.dat", std::ios::in);
     double pot;
     infile >> pot;
     return pot;
@@ -1364,7 +1364,7 @@ double ArgumentationAgent::getLastpot() {
 
 void ArgumentationAgent::setLastpot( double pot ) {
     std::ofstream outfile;
-    outfile.open("pot.dat");
+    outfile.open("bigSharedpot.dat");
     outfile << pot;
     outfile.close();
 }
