@@ -400,10 +400,11 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     // args will contain all applicable arguments
     std::set<Argument> args = getApplicableArguments(state);
     
-    /* THIS IS THE STANDARD WAY OF DOING IT, BUT TOO SLOW
     // Get the current situation
-    //Situation sit = getSituation(state);
+    Situation sit = getSituation(state);
+    /*
 
+    // THIS IS THE STANDARD WAY OF DOING IT, BUT TOO SLOW
     // For now, everything supporting different actions
     // attacks everything else
     std::set< std::pair<Argument, Argument> > attacks =
@@ -415,7 +416,6 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     //double afterSimplified = clock();
 
     // Get the preferred extension from the simplified framework
-    // TODO: still need to implement this. will use labelling system.
     // NOTE: could use grounded extension in the future
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
@@ -425,17 +425,6 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
     //double afterPreferredExts = clock();
 
-    // New way of supporting (support all; not random)
-    /*
-    double toRet = 0;
-    for (auto prefExt : prefExts) {
-        int supAct = getActionFromExt(prefExt);
-        if (action == supAct) {
-            toRet += getGFromExt(prefExt, sit);
-        }
-    }
-    */
-
     // Randomly choose one of the preferred extensions
     // and get the corresponding action
     std::set<Argument> ext = choosePrefExt(prefExts);
@@ -444,10 +433,10 @@ double ArgumentationAgent::getPotential(double state[], int action) {
 
     double toRet = 0;
     if (action == supportedAction) {
-        //toRet += getGFromExt(ext, sit);
-        toRet = 2;
+        toRet += getGFromExt(ext, sit);
+        //toRet = 2;
     }
-    double decay = pow(0.8, episodeCount / 1000);
+    double decay = pow(0.8, episodeCount / 1000); // shaping occurs where it should, in getPotential
     return decay * toRet;
     //return toRet;
 }
@@ -784,8 +773,9 @@ double ArgumentationAgent::getGFromExt(std::set<Argument> &args, Situation sit) 
     }
     //double scaling = episodeCount > 1000 ? 0 : 1;
     //max(0, 1.0 - episodeCount * 1.0 / 4000);
-    double scaling = pow(0.8, episodeCount / 1000);
-    return total * scaling;
+    //double scaling = pow(0.8, episodeCount / 1000);
+    //return total * scaling;
+    return total; // scaling is computed after in the lookback case
 }
 
 bool ArgumentationAgent::checkOpen(double state[], int i) {
