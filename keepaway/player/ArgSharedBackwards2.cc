@@ -995,7 +995,7 @@ std::map<ArgumentationAgent::Argument, ArgumentationAgent::Label> ArgumentationA
 }
 
 double ArgumentationAgent::getLastpot() {
-    std::ifstream infile("pot2.dat", std::ios::in);
+    std::ifstream infile("potSharedConst2.dat", std::ios::in);
     double pot;
     infile >> pot;
     return pot;
@@ -1003,7 +1003,7 @@ double ArgumentationAgent::getLastpot() {
 
 void ArgumentationAgent::setLastpot( double pot ) {
     std::ofstream outfile;
-    outfile.open("pot2.dat");
+    outfile.open("potSharedConst2.dat");
     outfile << pot;
     outfile.close();
 }
