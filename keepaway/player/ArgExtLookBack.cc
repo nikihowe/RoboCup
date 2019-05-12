@@ -402,9 +402,7 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     
     // Get the current situation
     Situation sit = getSituation(state);
-    /*
-
-    // THIS IS THE STANDARD WAY OF DOING IT, BUT TOO SLOW
+    
     // For now, everything supporting different actions
     // attacks everything else
     std::set< std::pair<Argument, Argument> > attacks =
@@ -419,10 +417,9 @@ double ArgumentationAgent::getPotential(double state[], int action) {
     // NOTE: could use grounded extension in the future
     std::set< std::set<Argument> > prefExts =
         getPreferredExtensions(args, attacks);
-    */
 
     // New way of doing extensions (decision tree)
-    std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
+    //std::set< std::set<Argument> > prefExts = getPreferredExtensionsFast(state, args);
     //double afterPreferredExts = clock();
 
     // Randomly choose one of the preferred extensions
@@ -433,12 +430,16 @@ double ArgumentationAgent::getPotential(double state[], int action) {
 
     double toRet = 0;
     if (action == supportedAction) {
-        toRet += getGFromExt(ext, sit);
-        //toRet = 2;
+        //toRet += getGFromExt(ext, sit);
+        if (episodeCount < 1000) { // trying varied shaping values, then cutoff
+            toRet = 2;
+        } else {
+            toRet = 0;
+        }
     }
-    double decay = pow(0.8, episodeCount / 1000); // shaping occurs where it should, in getPotential
-    return decay * toRet;
-    //return toRet;
+    //double decay = pow(0.8, episodeCount / 1000); // shaping occurs where it should, in getPotential
+    //return decay * toRet;
+    return toRet;
 }
 
 std::set<ArgumentationAgent::Argument> ArgumentationAgent::getApplicableArguments(double state[]) {
